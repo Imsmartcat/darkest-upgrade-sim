@@ -2,125 +2,184 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8"/>
-  <title>강화 시뮬레이터</title>
+  <title>강화 시뮬레이터 최종</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    * { box-sizing: border-box; }
-    body {
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
       font-family: sans-serif;
-      margin: 0;
-      padding: 20px;
       background: #f5f5f5;
+      color: #333;
+      transition: background .3s, color .3s;
+    }
+    .dark-mode {
+      background: #2e2e2e;
+      color: #ddd;
     }
     .container {
       display: flex;
       justify-content: space-between;
-      max-width: 1300px;
-      margin: 0 auto;
+      height: calc(100vh - 50px);
+      padding: 10px;
+      gap: 10px;
     }
     .column {
+      flex: 1;
       background: white;
-      padding: 20px;
+      padding: 15px;
       border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.05);
-      width: 30%;
+      box-shadow: 0 0 10px rgba(0,0,0,.05);
+      display: flex;
+      flex-direction: column;
+      transition: background .3s, color .3s;
+    }
+    .dark-mode .column {
+      background: #444;
+      color: #ddd;
     }
     .center-column {
-      width: 35%;
       text-align: center;
     }
     .log {
+      flex: 1;
       text-align: left;
-      margin-top: 20px;
-      max-height: 300px;
+      margin-top: 10px;
       overflow-y: auto;
       background: #f0f0f0;
       padding: 10px;
-    }
-    input, select, button {
-      margin: 5px;
-      padding: 5px;
-    }
-    h2, h3 {
-      margin-top: 0;
-    }
-    #stats p {
-      margin: 4px 0;
+      border-radius: 5px;
       font-size: 0.9rem;
     }
-    label {
-      display: inline-block;
-      margin: 6px 0;
+    .dark-mode .log {
+      background: #555;
     }
-    .log-entry.success { color: #4CAF50; font-weight: bold; }
-    .log-entry.fail-down { color: #F44336; font-weight: bold; }
-    .log-entry.fail-keep { color: #FFC107; font-weight: bold; }
+    input, select, button {
+      margin: 3px;
+      padding: 5px;
+    }
+    h1, h2, h3 {
+      margin-bottom: 10px;
+      font-size: 1.1rem;
+    }
+    p {
+      margin: 4px 0;
+      font-size: 0.95rem;
+    }
+    .log-entry.success {
+      color: #4CAF50;
+      font-weight: bold;
+      animation: sparkle .6s ease-out;
+    }
+    .log-entry.fail-down {
+      color: #F44336;
+      font-weight: bold;
+      animation: shake-soft .4s ease-out;
+    }
+    .log-entry.fail-keep {
+      color: #FFC107;
+      font-weight: bold;
+      animation: shake-soft .4s ease-out;
+    }
+    @keyframes sparkle {
+      0% { transform: scale(1); opacity:1; }
+      50% { transform: scale(1.15); opacity:.8; }
+      100% { transform: scale(1); opacity:1; }
+    }
+    @keyframes shake-soft {
+      0%,100% {transform:translateX(0);}
+      25% {transform:translateX(-2px);}
+      50% {transform:translateX(2px);}
+      75% {transform:translateX(-1px);}
+    }
+    #chart-container {
+      min-height: 220px;
+      margin-top: 10px;
+      flex-grow: 1;
+    }
+    #chart-container canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+    footer {
+      text-align: center;
+      font-size: .9rem;
+      color: gray;
+      margin-top: 10px;
+    }
+    .toggle-container {
+      text-align: right;
+      margin-bottom: 5px;
+      padding-right: 10px;
+    }
   </style>
 </head>
 <body>
-<div class="container">
-  <!-- 좌측 설명 -->
-  <div class="column">
-    <h2>📊 시퀀스 확률이란?</h2>
-    <p>지금까지 진행한 강화 성공/실패 흐름이 실제 표기된 확률 조건에서 발생할 수 있는 확률입니다.</p>
-    <p>이 수치를 통해,<br/>🔥 얼마나 운이 나빴는지<br/>🧠 표기된 확률대로 작동하는지<br/>📊 통계적으로 판단할 수 있습니다.</p>
-    <p><strong>※</strong> 강화 시도는 독립적이지만, 신뢰성 향상을 위해 해당 정보를 제공합니다.</p>
+  <div class="toggle-container">
+    <button id="themeToggle">다크모드 켜기</button>
+  </div>
 
-    <div id="stats">
-      <h3>📈 강화 통계 요약</h3>
-      <p>총 시도 횟수: <span id="statTotal">0</span>회</p>
-      <p>강화 성공 횟수: <span id="statSuccess">0</span>회</p>
-      <p>2강화 성공: <span id="s2">0</span> / 3강화 성공: <span id="s3">0</span> / 4강화 성공: <span id="s4">0</span></p>
-      <p>5강화 성공: <span id="s5">0</span> / 6강화 성공: <span id="s6">0</span> / 7강화 성공: <span id="s7">0</span></p>
-      <p>8강화 성공: <span id="s8">0</span> / 9강화 성공: <span id="s9">0</span></p>
-      <p>강화 실패 횟수: <span id="statFail">0</span>회</p>
-      <p>2강화 실패: <span id="f2">0</span> / 3강화 실패: <span id="f3">0</span> / 4강화 실패: <span id="f4">0</span></p>
-      <p>5강화 실패: <span id="f5">0</span> / 6강화 실패: <span id="f6">0</span> / 7강화 실패: <span id="f7">0</span></p>
-      <p>8강화 실패: <span id="f8">0</span> / 9강화 실패: <span id="f9">0</span></p>
+  <div class="container">
+    <div class="column">
+      <h2>📊 시퀀스 확률이란?</h2>
+      <p>지금까지 진행한 강화 성공/실패 흐름이 실제 표기된 확률 조건에서 발생할 수 있는 확률입니다.</p>
+      <p>이 수치를 통해,<br/>🔥 운의 흐름 분석<br/>🧠 표기 확률 신뢰도 확인<br/>📊 통계 판단 가능</p>
+      <p><strong>※</strong> 강화 시도는 확률적으로 독립입니다.</p>
+
+      <div id="stats">
+        <h3>📈 강화 통계 요약</h3>
+        <p>총 시도: <span id="statTotal">0</span>회</p>
+        <p>성공: <span id="statSuccess">0</span> / 실패: <span id="statFail">0</span></p>
+      </div>
+      <div id="chart-container">
+        <canvas id="successChart"></canvas>
+      </div>
+    </div>
+
+    <div class="column center-column">
+      <h1>강화 시뮬레이터</h1>
+      <p>현재 단계: <span id="level">+0</span></p>
+      <p>시도 횟수: <span id="tries">0</span></p>
+      <p>성공 확률: <span id="chanceRate">100%</span></p>
+      <p>📊 실질 시퀀스 확률: <span id="sequenceProb">0%</span></p>
+      <p>밀라 사용: <span id="mil">0</span></p>
+      <p>ER 사용: <span id="er">0</span></p>
+      <p>도구 사용: <span id="toolCount">0</span>개</p>
+
+      <label>등급:
+        <select id="grade">
+          <option value="N">N</option>
+          <option value="R">R</option>
+          <option value="SR">SR</option>
+          <option value="SSR">SSR</option>
+        </select>
+      </label><br/>
+      <label>목표 단계:
+        <input id="targetLevel" type="number" min="0" max="9" value="0"/>
+      </label><br/>
+      <button onclick="startAuto()">자동 강화 시작</button>
+      <button onclick="stopAuto()">자동 강화 중지</button><br/>
+      <button onclick="tryUpgrade()">강화 시도</button>
+      <button onclick="reset()">초기화</button>
+
+      <div class="log" id="log"></div>
+    </div>
+
+    <div class="column">
+      <h2>💰 자원 환산</h2>
+      <p>밀라 단가: 0.185원</p>
+      <p>ER 단가: 370원</p>
+      <p><strong>특별 강화 패키지 3 (₩37,000)</strong></p>
+      <p>밀라 환산: <span id="totalMilWon">0</span>원</p>
+      <p>ER 환산: <span id="totalErWon">0</span>원</p>
+      <hr/>
+      <p><strong>총 현금: <span id="totalCash">0</span>원</strong></p>
+      <p>📦 패키지 수량: <span id="packageCount">0</span>개</p>
+      <p>🧾 패키지 총비용: <span id="packagePrice">0</span>원</p>
     </div>
   </div>
 
-  <!-- 중앙 시뮬레이터 -->
-  <div class="column center-column">
-    <h1>강화 시뮬레이터</h1>
-    <p>현재 강화 단계: <span id="level">+0</span></p>
-    <p>총 시도 횟수: <span id="tries">0</span></p>
-    <p>강화 성공 확률: <span id="chanceRate">100%</span></p>
-    <p>📊 실제 시퀀스 확률: <span id="sequenceProb">0%</span></p>
-    <p>사용 밀라: <span id="mil">0</span></p>
-    <p>사용 ER: <span id="er">0</span></p>
-    <p>사용 강화도구: <span id="toolCount">0</span>개</p>
-    <label>장비 등급:
-      <select id="grade">
-        <option value="N">N</option>
-        <option value="R">R</option>
-        <option value="SR">SR</option>
-        <option value="SSR">SSR</option>
-      </select>
-    </label><br/>
-    <label>목표 강화 수치:
-      <input id="targetLevel" max="9" min="0" type="number" value="0"/>
-    </label><br/>
-    <button onclick="startAuto()">자동 강화 시작</button>
-    <button onclick="stopAuto()">자동 강화 중지</button><br/>
-    <button onclick="tryUpgrade()">강화 시도</button>
-    <button onclick="reset()">초기화</button>
-    <div class="log" id="log"></div>
-  </div>
-
-  <!-- 우측 현금 환산 -->
-  <div class="column">
-    <h2>💰 자원 현금 환산</h2>
-    <p>💠 밀라 단가: 0.185원</p>
-    <p>💠 ER 단가: 370원</p>
-    <p>밀라 현금 환산: <span id="totalMilWon">0</span>원</p>
-    <p>ER 현금 환산: <span id="totalErWon">0</span>원</p>
-    <hr/>
-    <p><strong>총 현금 가치: <span id="totalCash">0</span>원</strong></p>
-    <p>📦 패키지 수: <span id="packageCount">0</span>개</p>
-    <p>🧾 총 구매 금액: <span id="packagePrice">0</span>원</p>
-  </div>
-</div>
-
+  <footer>제작자: <strong>똑똑한 고양이</strong></footer>
 <script>
 const upgradeChances = [
   { success: 100, failStepDown: false },
@@ -133,7 +192,6 @@ const upgradeChances = [
   { success: 14, failStepDown: true },
   { success: 10, failStepDown: true },
 ];
-
 const costTable = {
   N: { mil: 20000, er: 10 },
   R: { mil: 50000, er: 20 },
@@ -143,15 +201,55 @@ const costTable = {
 
 let level = 0, tries = 0, success = 0, mil = 0, er = 0, auto = false;
 let history = [];
-let successStats = Array(10).fill(0);
-let failStats = Array(10).fill(0);
+
+const ctx = document.getElementById('successChart').getContext('2d');
+const chart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [{
+      label: '누적 성공률 (%)',
+      data: [],
+      borderColor: '#2196F3',
+      tension: 0.3
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { labels: { color: '#333' } }
+    },
+    scales: {
+      x: {
+        title: { display: true, text: '시도 횟수', color: '#333' },
+        ticks: { color: '#333' }
+      },
+      y: {
+        title: { display: true, text: '성공률 (%)', color: '#333' },
+        ticks: { color: '#333' },
+        beginAtZero: true,
+        max: 100
+      }
+    }
+  }
+});
+
+function themeUpdateChart() {
+  const isDark = document.body.classList.contains('dark-mode');
+  chart.options.plugins.legend.labels.color = isDark ? '#ddd' : '#333';
+  chart.options.scales.x.ticks.color = isDark ? '#ddd' : '#333';
+  chart.options.scales.y.ticks.color = isDark ? '#ddd' : '#333';
+  chart.options.scales.x.title.color = isDark ? '#ddd' : '#333';
+  chart.options.scales.y.title.color = isDark ? '#ddd' : '#333';
+  chart.update();
+}
 
 function calculateSequenceProbability() {
-  if (history.length === 0) return 1;
+  if (!history.length) return 1;
   return history.reduce((acc, cur) => {
     const rate = cur.rate / 100;
-    const p = cur.result === 'S' ? rate : (1 - rate);
-    return acc * p;
+    return acc * (cur.result === 'S' ? rate : (1 - rate));
   }, 1);
 }
 
@@ -159,10 +257,6 @@ function updateStatsDisplay() {
   document.getElementById("statTotal").textContent = tries;
   document.getElementById("statSuccess").textContent = success;
   document.getElementById("statFail").textContent = tries - success;
-  for (let i = 2; i <= 9; i++) {
-    document.getElementById("s" + i).textContent = successStats[i];
-    document.getElementById("f" + i).textContent = failStats[i];
-  }
 }
 
 function updateDisplay() {
@@ -171,15 +265,20 @@ function updateDisplay() {
   document.getElementById("tries").textContent = tries;
   document.getElementById("mil").textContent = mil.toLocaleString();
   document.getElementById("er").textContent = er;
-  const milWon = mil * 0.185;
-  const erWon = er * 370;
-  const total = milWon + erWon;
+  const milWon = mil * 0.185, erWon = er * 370, total = milWon + erWon;
   document.getElementById("totalMilWon").textContent = Math.round(milWon).toLocaleString();
   document.getElementById("totalErWon").textContent = Math.round(erWon).toLocaleString();
   document.getElementById("totalCash").textContent = Math.round(total).toLocaleString();
-  const packageNum = Math.ceil(total / 37000);
-  document.getElementById("packageCount").textContent = packageNum;
-  document.getElementById("packagePrice").textContent = (packageNum * 37000).toLocaleString();
+  const pkg = Math.ceil(total / 37000);
+  document.getElementById("packageCount").textContent = pkg;
+  document.getElementById("packagePrice").textContent = (pkg * 37000).toLocaleString();
+}
+
+function updateChart() {
+  const rate = tries ? Math.round(success / tries * 10000) / 100 : 0;
+  chart.data.labels.push(tries);
+  chart.data.datasets[0].data.push(rate);
+  chart.update();
 }
 
 function tryUpgrade() {
@@ -188,49 +287,45 @@ function tryUpgrade() {
   const grade = document.getElementById("grade").value;
   const cost = costTable[grade];
   const chance = upgradeChances[level];
-  const roll = Math.random() * 100;
-  const isSuccess = roll < chance.success;
-  tries++;
-  mil += cost.mil;
-  er += cost.er;
-  let log = "";
-  let logClass = "";
+  const isSuccess = Math.random() * 100 < chance.success;
+
+  tries++; mil += cost.mil; er += cost.er;
+
+  let log = "", logClass = "";
   if (isSuccess) {
-    level++;
-    success++;
-    successStats[level]++;
-    log = `✨ +${prevLevel} 강화 성공! 단계 상승 → +${level} 달성!`;
+    level++; success++;
+    log = `✨ +${prevLevel} 성공 → +${level}`;
     logClass = "success";
   } else {
     if (chance.failStepDown) {
       level = Math.max(0, level - 1);
-      log = `💀 +${prevLevel} 강화 실패! 단계 하락 → +${level} 하락!`;
+      log = `💀 +${prevLevel} 실패(하락) → +${level}`;
       logClass = "fail-down";
     } else {
-      log = `💥 +${prevLevel} 강화 실패! 단계 유지 → +${level} 유지!`;
+      log = `💥 +${prevLevel} 실패(유지) → +${level}`;
       logClass = "fail-keep";
     }
-    failStats[prevLevel]++;
   }
+
   document.getElementById("log").innerHTML =
     `<div class="log-entry ${logClass}">▶ ${log}</div>` + document.getElementById("log").innerHTML;
+
   history.push({ rate: chance.success, result: isSuccess ? 'S' : 'F' });
   document.getElementById("sequenceProb").textContent = `${(calculateSequenceProbability() * 100).toFixed(18)}%`;
   document.getElementById("toolCount").textContent = tries;
-  updateStatsDisplay();
-  updateDisplay();
+  updateStatsDisplay(); updateDisplay(); updateChart();
 }
 
 function reset() {
   level = tries = success = mil = er = 0;
   history = [];
-  successStats.fill(0);
-  failStats.fill(0);
   document.getElementById("log").innerHTML = "";
   document.getElementById("sequenceProb").textContent = "0%";
   document.getElementById("toolCount").textContent = "0";
-  updateStatsDisplay();
-  updateDisplay();
+  chart.data.labels = [];
+  chart.data.datasets[0].data = [];
+  chart.update();
+  updateStatsDisplay(); updateDisplay();
 }
 
 function startAuto() {
@@ -240,15 +335,22 @@ function startAuto() {
     if (!auto || level >= target) {
       clearInterval(interval);
       auto = false;
-      return;
+    } else {
+      tryUpgrade();
     }
-    tryUpgrade();
-  }, 300);
+  }, 250);
 }
 
 function stopAuto() {
   auto = false;
 }
+
+document.getElementById("themeToggle").onclick = () => {
+  document.body.classList.toggle("dark-mode");
+  document.getElementById("themeToggle").textContent =
+    document.body.classList.contains("dark-mode") ? "다크모드 끄기" : "다크모드 켜기";
+  themeUpdateChart();
+};
 
 window.onload = reset;
 </script>
