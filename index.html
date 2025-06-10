@@ -1,77 +1,142 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8"/>
   <title>다키스트 데이즈 강화 시뮬레이터</title>
   <style>
-    body { font-family: sans-serif; text-align: center; padding: 20px; }
-    .log { text-align: left; margin-top: 20px; max-height: 300px; overflow-y: auto; background: #f0f0f0; padding: 10px; }
-    input, select, button { margin: 5px; padding: 5px; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+
+    .container {
+      display: flex;
+      justify-content: space-between;
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+
+    .column {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+      width: 30%;
+    }
+
+    .center-column {
+      width: 35%;
+      text-align: center;
+    }
+
+    .log {
+      text-align: left;
+      margin-top: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+      background: #f0f0f0;
+      padding: 10px;
+    }
+
+    input, select, button {
+      margin: 5px;
+      padding: 5px;
+    }
+
+    h2, h3 {
+      margin-top: 0;
+    }
+
+    #stats p {
+      margin: 4px 0;
+      font-size: 0.9rem;
+    }
+
+    label {
+      display: inline-block;
+      margin: 6px 0;
+    }
   </style>
 </head>
 <body>
 
-<!-- 좌측 설명 -->
-<div style="position: absolute; top: 30px; left: 30px; width: 360px; text-align: left; font-size: 0.95rem;">
-  <h2 style="font-size: 1.1rem; font-weight: bold;">📊 시퀀스 확률이란?</h2>
-  <p>
-    지금까지 진행한 강화 성공/실패 흐름이 실제 표기된 확률 조건에서 발생할 수 있는 확률입니다.
-  </p>
-  <p>
-    이 수치를 통해,<br/>
-    🔥 내 강화가 실제로 얼마나 운이 나빴는지<br/>
-    🧠 게임사가 표기한 확률대로 시스템이 작동하고 있는지<br/>
-    📊 통계적으로 판단할 수 있습니다.
-  </p>
-  <p>
-    <strong>※</strong> 강화 시도는 확률적으로 독립이지만,<br/>
-    반복된 실패에 대한 체감 불신을 완화하고,<br/>
-    확률 시스템의 신뢰성을 높이기 위해 해당 정보를<br/>
-    제공하고 있습니다.
-  </p>
-</div>
+<div class="container">
+  <!-- 좌측 설명 -->
+  <div class="column">
+    <h2>📊 시퀀스 확률이란?</h2>
+    <p>
+      지금까지 진행한 강화 성공/실패 흐름이 실제 표기된 확률 조건에서 발생할 수 있는 확률입니다.
+    </p>
+    <p>
+      이 수치를 통해,<br/>
+      🔥 내 강화가 실제로 얼마나 운이 나빴는지<br/>
+      🧠 게임사가 표기한 확률대로 시스템이 작동하고 있는지<br/>
+      📊 통계적으로 판단할 수 있습니다.
+    </p>
+    <p>
+      <strong>※</strong> 강화 시도는 확률적으로 독립이지만,<br/>
+      반복된 실패에 대한 체감 불신을 완화하고,<br/>
+      확률 시스템의 신뢰성을 높이기 위해 해당 정보를 제공하고 있습니다.
+    </p>
 
-<h1>다키스트 데이즈 강화 시뮬레이터</h1>
-<p>현재 강화 단계: <span id="level">+0</span></p>
-<p>총 시도 횟수: <span id="tries">0</span></p>
-<p>강화 성공 확률: <span id="chanceRate">100%</span></p>
-<p>📊 실제 시퀀스 확률: <span id="sequenceProb">0%</span></p>
-<p>사용 밀라: <span id="mil">0</span></p>
-<p>사용 ER: <span id="er">0</span></p>
-<p>사용 강화도구: <span id="toolCount">0</span>개</p>
+    <div id="stats" style="margin-top: 20px;">
+      <h3>📈 강화 통계 요약</h3>
+      <p>총 시도 횟수: <span id="statTotal">0</span>회</p>
+      <p>강화 성공 횟수: <span id="statSuccess">0</span>회</p>
+      <p>2강화 성공: <span id="s2">0</span> / 3강화 성공: <span id="s3">0</span> / 4강화 성공: <span id="s4">0</span></p>
+      <p>5강화 성공: <span id="s5">0</span> / 6강화 성공: <span id="s6">0</span> / 7강화 성공: <span id="s7">0</span></p>
+      <p>8강화 성공: <span id="s8">0</span> / 9강화 성공: <span id="s9">0</span></p>
+      <p>강화 실패 횟수: <span id="statFail">0</span>회</p>
+      <p>2강화 실패: <span id="f2">0</span> / 3강화 실패: <span id="f3">0</span> / 4강화 실패: <span id="f4">0</span></p>
+      <p>5강화 실패: <span id="f5">0</span> / 6강화 실패: <span id="f6">0</span> / 7강화 실패: <span id="f7">0</span></p>
+      <p>8강화 실패: <span id="f8">0</span> / 9강화 실패: <span id="f9">0</span></p>
+    </div>
+  </div>
 
-<label>장비 등급:
-  <select id="grade">
-    <option value="N">N</option>
-    <option value="R">R</option>
-    <option value="SR">SR</option>
-    <option value="SSR">SSR</option>
-  </select>
-</label><br>
+  <!-- 중앙 시뮬레이터 -->
+  <div class="column center-column">
+    <h1>다키스트 데이즈 강화 시뮬레이터</h1>
+    <p>현재 강화 단계: <span id="level">+0</span></p>
+    <p>총 시도 횟수: <span id="tries">0</span></p>
+    <p>강화 성공 확률: <span id="chanceRate">100%</span></p>
+    <p>📊 실제 시퀀스 확률: <span id="sequenceProb">0%</span></p>
+    <p>사용 밀라: <span id="mil">0</span></p>
+    <p>사용 ER: <span id="er">0</span></p>
+    <p>사용 강화도구: <span id="toolCount">0</span>개</p>
+    <label>장비 등급:
+      <select id="grade">
+        <option value="N">N</option>
+        <option value="R">R</option>
+        <option value="SR">SR</option>
+        <option value="SSR">SSR</option>
+      </select>
+    </label><br/>
+    <label>목표 강화 수치:
+      <input id="targetLevel" max="9" min="0" type="number" value="0"/>
+    </label>
+    <br/>
+    <button onclick="startAuto()">자동 강화 시작</button>
+    <button onclick="stopAuto()">자동 강화 중지</button><br/>
+    <button onclick="tryUpgrade()">강화 시도</button>
+    <button onclick="reset()">초기화</button>
+    <div class="log" id="log"></div>
+  </div>
 
-<label>목표 강화 수치:
-  <input type="number" id="targetLevel" value="0" min="0" max="9" />
-</label>
-<button onclick="startAuto()">자동 강화 시작</button>
-<button onclick="stopAuto()">자동 강화 중지</button><br>
-
-<button onclick="tryUpgrade()">강화 시도</button>
-<button onclick="reset()">초기화</button>
-
-<div class="log" id="log"></div>
-
-<!-- 우측 현금 환산 -->
-<div style="position: absolute; top: 60px; right: 80px; width: 400px; border-left: 2px solid #ccc; padding-left: 40px; text-align: left;">
-  <h2 style="font-size: 1.2rem; font-weight: bold;">💰 소모 자원 현금 환산 (37,000원 특별 강화 패키지 기반)</h2>
-  <p>💠 밀라 단가: 0.185원</p>
-  <p>💠 ER 단가: 370원</p>
-  <p>밀라 현금 환산: <span id="totalMilWon">0</span>원</p>
-  <p>ER 현금 환산: <span id="totalErWon">0</span>원</p>
-  <hr/>
-  <p><strong>총 현금 가치: <span id="totalCash">0</span>원</strong></p>
-  <p>📦 패키지 구매 필요 수량: <span id="packageCount">0</span>회</p>
-  <p>🧾 패키지 총 구매 금액: <span id="packagePrice">0</span>원</p>
+  <!-- 우측 현금 환산 -->
+  <div class="column">
+    <h2>💰 소모 자원 현금 환산 (37,000원 특별 강화 패키지 기반)</h2>
+    <p>💠 밀라 단가: 0.185원</p>
+    <p>💠 ER 단가: 370원</p>
+    <p>밀라 현금 환산: <span id="totalMilWon">0</span>원</p>
+    <p>ER 현금 환산: <span id="totalErWon">0</span>원</p>
+    <hr/>
+    <p><strong>총 현금 가치: <span id="totalCash">0</span>원</strong></p>
+    <p>📦 패키지 구매 필요 수량: <span id="packageCount">0</span>회</p>
+    <p>🧾 패키지 총 구매 금액: <span id="packagePrice">0</span>원</p>
+  </div>
 </div>
 
 <script>
@@ -96,6 +161,8 @@ const costTable = {
 
 let level = 0, tries = 0, success = 0, mil = 0, er = 0, auto = false;
 let history = [];
+let successStats = Array(10).fill(0);
+let failStats = Array(10).fill(0);
 
 function calculateSequenceProbability() {
   if (history.length === 0) return 1;
@@ -104,6 +171,16 @@ function calculateSequenceProbability() {
     const p = cur.result === 'S' ? rate : (1 - rate);
     return acc * p;
   }, 1);
+}
+
+function updateStatsDisplay() {
+  document.getElementById("statTotal").textContent = tries;
+  document.getElementById("statSuccess").textContent = success;
+  document.getElementById("statFail").textContent = tries - success;
+  for (let i = 2; i <= 9; i++) {
+    document.getElementById("s" + i).textContent = successStats[i];
+    document.getElementById("f" + i).textContent = failStats[i];
+  }
 }
 
 function updateDisplay() {
@@ -127,12 +204,12 @@ function updateDisplay() {
 
 function tryUpgrade() {
   if (level >= 9) return;
+  const prevLevel = level;
   const grade = document.getElementById("grade").value;
   const cost = costTable[grade];
   const chance = upgradeChances[level];
   const roll = Math.random() * 100;
   const isSuccess = roll < chance.success;
-  const prevLevel = level;
 
   tries++;
   mil += cost.mil;
@@ -142,30 +219,37 @@ function tryUpgrade() {
   if (isSuccess) {
     level++;
     success++;
+    successStats[level]++;
     log = `✨ +${prevLevel} 강화 성공! 단계 상승 → +${level} 달성!`;
   } else {
     if (chance.failStepDown) {
       level = Math.max(0, level - 1);
-      log = `💀 +${prevLevel} 강화 실패! 단계 하락 → +${level} 하락!`;
-    } else {
-      log = `💥 +${prevLevel} 강화 실패! 단계 유지 → +${level} 유지!`;
     }
+    failStats[prevLevel]++;
+    log = chance.failStepDown
+      ? `💀 +${prevLevel} 강화 실패! 단계 하락 → +${level} 하락!`
+      : `💥 +${prevLevel} 강화 실패! 단계 유지 → +${level} 유지!`;
   }
 
   document.getElementById("log").innerHTML = `<div>▶ ${log}</div>` + document.getElementById("log").innerHTML;
   history.push({ rate: chance.success, result: isSuccess ? 'S' : 'F' });
-  document.getElementById('sequenceProb').textContent = `${(calculateSequenceProbability() * 100).toFixed(8)}%`;
+  document.getElementById("sequenceProb").textContent = `${(calculateSequenceProbability() * 100).toFixed(18)}%`;
   document.getElementById("toolCount").textContent = tries;
+
+  updateStatsDisplay();
   updateDisplay();
 }
 
 function reset() {
   level = tries = success = mil = er = 0;
-  auto = false;
-  document.getElementById("log").innerHTML = "";
   history = [];
-  document.getElementById('sequenceProb').textContent = `0%`;
-  document.getElementById("toolCount").textContent = tries;
+  successStats.fill(0);
+  failStats.fill(0);
+  document.getElementById("log").innerHTML = "";
+  document.getElementById("sequenceProb").textContent = "0%";
+  document.getElementById("toolCount").textContent = "0";
+
+  updateStatsDisplay();
   updateDisplay();
 }
 
@@ -173,7 +257,7 @@ function startAuto() {
   const target = Math.min(9, Math.max(0, parseInt(document.getElementById("targetLevel").value) || 0));
   auto = true;
   const interval = setInterval(() => {
-    if (!auto || level >= target || level >= 9) {
+    if (!auto || level >= target) {
       clearInterval(interval);
       auto = false;
       return;
@@ -186,9 +270,8 @@ function stopAuto() {
   auto = false;
 }
 
-window.onload = function() {
-  reset();
-};
+window.onload = reset;
 </script>
+
 </body>
 </html>
