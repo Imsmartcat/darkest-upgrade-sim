@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="ko"> 
+<html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <title>다키스트 데이즈 강화 시뮬레이터</title>
@@ -70,6 +70,8 @@
   <p>ER 현금 환산: <span id="totalErWon">0</span>원</p>
   <hr/>
   <p><strong>총 현금 가치: <span id="totalCash">0</span>원</strong></p>
+  <p>📦 패키지 구매 필요 수량: <span id="packageCount">0</span>회</p>
+  <p>🧾 패키지 총 구매 금액: <span id="packagePrice">0</span>원</p>
 </div>
 
 <script>
@@ -113,9 +115,14 @@ function updateDisplay() {
 
   const milWon = mil * 0.185;
   const erWon = er * 370;
+  const total = milWon + erWon;
+
   document.getElementById("totalMilWon").textContent = Math.round(milWon).toLocaleString();
   document.getElementById("totalErWon").textContent = Math.round(erWon).toLocaleString();
-  document.getElementById("totalCash").textContent = Math.round(milWon + erWon).toLocaleString();
+  document.getElementById("totalCash").textContent = Math.round(total).toLocaleString();
+  const packageNum = Math.ceil(total / 37000);
+  document.getElementById("packageCount").textContent = packageNum;
+  document.getElementById("packagePrice").textContent = (packageNum * 37000).toLocaleString();
 }
 
 function tryUpgrade() {
