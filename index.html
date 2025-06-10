@@ -108,25 +108,21 @@
   <div class="toggle-container">
     <button id="themeToggle">다크모드 켜기</button>
   </div>
-
   <div class="container">
     <div class="column">
       <h2>📊 시퀀스 확률이란?</h2>
       <p>강화 성공/실패/유지 흐름이 실제 표기된 확률 조건에서 발생할 수 있는 확률</p>
       <p>🔥 운이 나빴는지, 🧠 시스템이 공정한지 📊 통계적으로 판단할 수 있습니다.</p>
-      <p><strong>※</strong>강화 시도는 확률적으로 독립이며 강화 시스템 구조에 대한 문제점을 알리기 위함입니다..</p>
-
+      <p><strong>※</strong>강화 시도는 확률적으로 독립이며 반복 실패는 강화 시스템의 문제를 지적하기 위함입니다.</p>
       <div id="stats">
         <h3>📈 강화 통계 요약</h3>
         <p>총 시도: <span id="statTotal">0</span>회</p>
         <p>성공: <span id="statSuccess">0</span> / 실패: <span id="statFail">0</span></p>
       </div>
-
       <div id="chart-container">
         <canvas id="successChart"></canvas>
       </div>
     </div>
-
     <div class="column center-column">
       <h1>강화 시뮬레이터</h1>
       <p>현재 단계: <span id="level">+0</span></p>
@@ -136,14 +132,8 @@
       <p>밀라 사용: <span id="mil">0</span></p>
       <p>ER 사용: <span id="er">0</span></p>
       <p>도구 사용: <span id="toolCount">0</span>개</p>
-
       <label>등급:
-        <select id="grade">
-          <option value="N">N</option>
-          <option value="R">R</option>
-          <option value="SR">SR</option>
-          <option value="SSR">SSR</option>
-        </select>
+        <select id="grade"><option value="N">N</option><option value="R">R</option><option value="SR">SR</option><option value="SSR">SSR</option></select>
       </label><br/>
       <label>목표 단계:
         <input id="targetLevel" type="number" min="0" max="9" value="0"/>
@@ -152,10 +142,8 @@
       <button onclick="stopAuto()">자동 강화 중지</button><br/>
       <button onclick="tryUpgrade()">강화 시도</button>
       <button onclick="reset()">초기화</button>
-
       <div class="log" id="log"></div>
     </div>
-
     <div class="column">
       <h2>💰 자원 환산</h2>
       <p>밀라 단가: 0.185원</p>
@@ -169,7 +157,6 @@
       <p>🧾 패키지 총비용: <span id="packagePrice">0</span>원</p>
     </div>
   </div>
-
   <footer>제작자: <strong>똑똑한 고양이</strong></footer>
 <script>
 const ctx = document.getElementById('successChart').getContext('2d');
@@ -183,7 +170,7 @@ const chart = new Chart(ctx, {
         data: [],
         borderColor: '#2196F3',
         tension: 0.3,
-        yAxisID: 'y',
+        yAxisID: 'y'
       },
       {
         type: 'scatter',
@@ -192,7 +179,7 @@ const chart = new Chart(ctx, {
         pointBackgroundColor: 'red',
         pointRadius: 4,
         showLine: false,
-        yAxisID: 'y',
+        yAxisID: 'y'
       }
     ]
   },
@@ -204,8 +191,13 @@ const chart = new Chart(ctx, {
       tooltip: {
         callbacks: {
           label: function(context) {
-            const item = context.raw;
-            return item.label || `x: ${item.x}, y: ${item.y}`;
+            const ds = context.dataset;
+            const raw = context.raw;
+            if (ds.type === 'scatter') {
+              return raw.label || `단계: ${raw.x}, 성공률: ${raw.y}%`;
+            }
+            const val = typeof raw === 'number' ? raw : raw.y;
+            return `누적 성공률: ${val}%`;
           }
         }
       }
@@ -226,12 +218,12 @@ const chart = new Chart(ctx, {
 });
 
 function themeUpdateChart() {
-  const isDark = document.body.classList.contains('dark-mode');
-  chart.options.plugins.legend.labels.color = isDark ? '#ddd' : '#333';
-  chart.options.scales.x.ticks.color = isDark ? '#ddd' : '#333';
-  chart.options.scales.y.ticks.color = isDark ? '#ddd' : '#333';
-  chart.options.scales.x.title.color = isDark ? '#ddd' : '#333';
-  chart.options.scales.y.title.color = isDark ? '#ddd' : '#333';
+  const dark = document.body.classList.contains('dark-mode');
+  chart.options.plugins.legend.labels.color = dark ? '#ddd' : '#333';
+  chart.options.scales.x.ticks.color = dark ? '#ddd' : '#333';
+  chart.options.scales.y.ticks.color = dark ? '#ddd' : '#333';
+  chart.options.scales.x.title.color = dark ? '#ddd' : '#333';
+  chart.options.scales.y.title.color = dark ? '#ddd' : '#333';
   chart.update();
 }
 </script>
@@ -245,130 +237,106 @@ const upgradeChances = [
   { success: 25, failStepDown: true },
   { success: 20, failStepDown: true },
   { success: 14, failStepDown: true },
-  { success: 10, failStepDown: true },
+  { success: 10, failStepDown: true }
 ];
 const costTable = {
   N: { mil: 20000, er: 10 },
   R: { mil: 50000, er: 20 },
   SR: { mil: 100000, er: 30 },
-  SSR: { mil: 250000, er: 50 },
+  SSR: { mil: 250000, er: 50 }
 };
 
-let level = 0, tries = 0, success = 0, mil = 0, er = 0, auto = false;
-let history = [];
+let level=0, tries=0, success=0, mil=0, er=0, auto=false, history=[];
 
-function calculateSequenceProbability() {
-  if (!history.length) return 1;
-  return history.reduce((acc, cur) => {
-    const rate = cur.rate / 100;
-    return acc * (cur.result === 'S' ? rate : (1 - rate));
-  }, 1);
+function calculateSequenceProbability(){
+  if(!history.length) return 1;
+  return history.reduce((a,c)=>{
+    const r=c.rate/100;
+    return a*(c.result==='S'?r:(1-r));
+  },1);
 }
 
-function updateStatsDisplay() {
+function updateStatsDisplay(){
   document.getElementById("statTotal").textContent = tries;
   document.getElementById("statSuccess").textContent = success;
-  document.getElementById("statFail").textContent = tries - success;
+  document.getElementById("statFail").textContent = tries-success;
 }
 
-function updateDisplay() {
+function updateDisplay(){
   document.getElementById("chanceRate").textContent = `${upgradeChances[level].success}%`;
   document.getElementById("level").textContent = `+${level}`;
   document.getElementById("tries").textContent = tries;
   document.getElementById("mil").textContent = mil.toLocaleString();
   document.getElementById("er").textContent = er;
-  const milWon = mil * 0.185, erWon = er * 370, total = milWon + erWon;
+  const milWon = mil*0.185, erWon=er*370, total=milWon+erWon;
   document.getElementById("totalMilWon").textContent = Math.round(milWon).toLocaleString();
   document.getElementById("totalErWon").textContent = Math.round(erWon).toLocaleString();
   document.getElementById("totalCash").textContent = Math.round(total).toLocaleString();
-  const pkg = Math.ceil(total / 37000);
+  const pkg = Math.ceil(total/37000);
   document.getElementById("packageCount").textContent = pkg;
-  document.getElementById("packagePrice").textContent = (pkg * 37000).toLocaleString();
+  document.getElementById("packagePrice").textContent = (pkg*37000).toLocaleString();
 }
 
-function updateChart() {
-  const rate = tries ? Math.round(success / tries * 10000) / 100 : 0;
-  chart.data.labels.push(tries);
-  chart.data.datasets[0].data.push(rate);
+function updateChart(){
+  const rate = tries?Math.round(success/tries*10000)/100:0;
+  if(!isNaN(rate)){
+    chart.data.labels.push(tries);
+    chart.data.datasets[0].data.push(rate);
+  }
   chart.update();
 }
 
-function tryUpgrade() {
-  if (level >= 9) return;
-  const prevLevel = level;
-  const grade = document.getElementById("grade").value;
-  const cost = costTable[grade];
-  const chance = upgradeChances[level];
-  const isSuccess = Math.random() * 100 < chance.success;
-
-  tries++; mil += cost.mil; er += cost.er;
-
-  let log = "", logClass = "";
-  if (isSuccess) {
+function tryUpgrade(){
+  if(level>=9) return;
+  const prev=level;
+  const grade=document.getElementById("grade").value;
+  const cost=costTable[grade];
+  const chance=upgradeChances[level];
+  const ok = Math.random()*100 < chance.success;
+  tries++; mil+=cost.mil; er+=cost.er;
+  let log="", cls="";
+  if(ok){
     level++; success++;
-    log = `✨ +${prevLevel} 성공 → +${level}`;
-    logClass = "success";
-
-    const rate = tries ? Math.round(success / tries * 10000) / 100 : 0;
-    chart.data.datasets[1].data.push({
-      x: tries,
-      y: rate,
-      label: `+${level} 성공`
-    });
+    log=`✨ +${prev} 성공 → +${level}`; cls="success";
+    const rate = Math.round(success/tries*10000)/100;
+    chart.data.datasets[1].data.push({x:tries,y:rate,label:`+${level} 성공`});
   } else {
-    if (chance.failStepDown) {
-      level = Math.max(0, level - 1);
-      log = `💀 +${prevLevel} 실패(하락) → +${level}`;
-      logClass = "fail-down";
+    if(chance.failStepDown){
+      level=Math.max(0,level-1);
+      log=`💀 +${prev} 실패(하락) → +${level}`; cls="fail-down";
     } else {
-      log = `💥 +${prevLevel} 실패(유지) → +${level}`;
-      logClass = "fail-keep";
+      log=`💥 +${prev} 실패(유지) → +${level}`; cls="fail-keep";
     }
   }
-
-  document.getElementById("log").innerHTML =
-    `<div class="log-entry ${logClass}">▶ ${log}</div>` + document.getElementById("log").innerHTML;
-
-  history.push({ rate: chance.success, result: isSuccess ? 'S' : 'F' });
-  document.getElementById("sequenceProb").textContent = `${(calculateSequenceProbability() * 100).toFixed(18)}%`;
+  document.getElementById("log").innerHTML = `<div class="log-entry ${cls}">▶ ${log}</div>` + document.getElementById("log").innerHTML;
+  history.push({rate:chance.success,result:ok?'S':'F'});
+  document.getElementById("sequenceProb").textContent = `${(calculateSequenceProbability()*100).toFixed(18)}%`;
   document.getElementById("toolCount").textContent = tries;
   updateStatsDisplay(); updateDisplay(); updateChart();
 }
 
-function reset() {
-  level = tries = success = mil = er = 0;
-  history = [];
-  document.getElementById("log").innerHTML = "";
-  document.getElementById("sequenceProb").textContent = "0%";
-  document.getElementById("toolCount").textContent = "0";
-  chart.data.labels = [];
-  chart.data.datasets[0].data = [];
-  chart.data.datasets[1].data = [];
-  chart.update();
-  updateStatsDisplay(); updateDisplay();
+function reset(){
+  level=tries=success=mil=er=0; history=[];
+  document.getElementById("log").innerHTML="";
+  document.getElementById("sequenceProb").textContent="0%";
+  document.getElementById("toolCount").textContent="0";
+  chart.data.labels=[]; chart.data.datasets[0].data=[]; chart.data.datasets[1].data=[];
+  chart.update(); updateStatsDisplay(); updateDisplay();
 }
 
-function startAuto() {
-  const target = Math.min(9, Math.max(0, parseInt(document.getElementById("targetLevel").value) || 0));
-  auto = true;
-  const interval = setInterval(() => {
-    if (!auto || level >= target) {
-      clearInterval(interval);
-      auto = false;
-    } else {
-      tryUpgrade();
-    }
-  }, 250);
+function startAuto(){
+  const t= Math.min(9,Math.max(0,parseInt(document.getElementById("targetLevel").value)||0));
+  auto=true;
+  const interval=setInterval(()=>{
+    if(!auto||level>=t){clearInterval(interval);auto=false;} else tryUpgrade();
+  },250);
 }
 
-function stopAuto() {
-  auto = false;
-}
+function stopAuto(){auto=false;}
 
 document.getElementById("themeToggle").onclick = () => {
   document.body.classList.toggle("dark-mode");
-  document.getElementById("themeToggle").textContent =
-    document.body.classList.contains("dark-mode") ? "다크모드 끄기" : "다크모드 켜기";
+  document.getElementById("themeToggle").textContent = document.body.classList.contains("dark-mode")?"다크모드 끄기":"다크모드 켜기";
   themeUpdateChart();
 };
 
