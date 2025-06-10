@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8"/>
-  <title>강화 시뮬레이터 최종</title>
+  <title>강화 시뮬레이터 with 분포도</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -38,9 +38,7 @@
       background: #444;
       color: #ddd;
     }
-    .center-column {
-      text-align: center;
-    }
+    .center-column { text-align: center; }
     .log {
       flex: 1;
       text-align: left;
@@ -51,35 +49,38 @@
       border-radius: 5px;
       font-size: 0.9rem;
     }
-    .dark-mode .log {
-      background: #555;
-    }
+    .dark-mode .log { background: #555; }
     input, select, button {
       margin: 3px;
       padding: 5px;
     }
-    h1, h2, h3 {
-      margin-bottom: 10px;
-      font-size: 1.1rem;
-    }
-    p {
-      margin: 4px 0;
-      font-size: 0.95rem;
-    }
+    h1, h2, h3 { margin-bottom: 10px; font-size: 1.1rem; }
+    p { margin: 4px 0; font-size: 0.95rem; }
     .log-entry.success {
       color: #4CAF50;
       font-weight: bold;
-      animation: sparkle .5s ease-out;
+      animation: sparkle .4s ease-out;
     }
     .log-entry.fail-down {
       color: #F44336;
       font-weight: bold;
-      animation: shake-soft .4s ease-in-out;
+      animation: shake-soft .3s ease-in-out;
     }
     .log-entry.fail-keep {
       color: #FFC107;
       font-weight: bold;
-      animation: shake-soft .4s ease-out;
+      animation: shake-soft .3s ease-out;
+    }
+    @keyframes sparkle {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.07); opacity: 0.9; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    @keyframes shake-soft {
+      0%,100% { transform: translateX(0); }
+      25% { transform: translateX(-1px); }
+      50% { transform: translateX(1px); }
+      75% { transform: translateX(-0.5px); }
     }
     #chart-container {
       min-height: 220px;
@@ -112,14 +113,15 @@
     <div class="column">
       <h2>📊 시퀀스 확률이란?</h2>
       <p>강화 성공/실패/유지 흐름이 실제 표기된 확률 조건에서 발생할 수 있는 확률</p>
-      <p>이 수치를 통해 알 수 있는 건 아래와 같습니다.<br/>🔥 내 강화가 실제로 얼마나 운이 나빴는지<br/>🧠 게임사가 표기한 확률대로 시스템이 작동하고 있는지<br/>📊 통계적으로 판단할 수 있습니다.</p>
-      <p><strong>※</strong>강화 시도는 확률적으로 독립이지만 반복된 실패에 대한 체감 불신을 보여주기 위함입니다. </p>
-<br/>
+      <p>🔥 운이 나빴는지, 🧠 시스템이 공정한지 📊 통계적으로 판단할 수 있습니다.</p>
+      <p><strong>※</strong>강화 시도는 확률적으로 독립이며 강화 시스템 구조에 대한 문제점을 알리기 위함입니다..</p>
+
       <div id="stats">
         <h3>📈 강화 통계 요약</h3>
         <p>총 시도: <span id="statTotal">0</span>회</p>
         <p>성공: <span id="statSuccess">0</span> / 실패: <span id="statFail">0</span></p>
       </div>
+
       <div id="chart-container">
         <canvas id="successChart"></canvas>
       </div>
@@ -170,44 +172,43 @@
 
   <footer>제작자: <strong>똑똑한 고양이</strong></footer>
 <script>
-const upgradeChances = [
-  { success: 100, failStepDown: false },
-  { success: 50, failStepDown: false },
-  { success: 50, failStepDown: false },
-  { success: 33, failStepDown: true },
-  { success: 33, failStepDown: true },
-  { success: 25, failStepDown: true },
-  { success: 20, failStepDown: true },
-  { success: 14, failStepDown: true },
-  { success: 10, failStepDown: true },
-];
-const costTable = {
-  N: { mil: 20000, er: 10 },
-  R: { mil: 50000, er: 20 },
-  SR: { mil: 100000, er: 30 },
-  SSR: { mil: 250000, er: 50 },
-};
-
-let level = 0, tries = 0, success = 0, mil = 0, er = 0, auto = false;
-let history = [];
-
 const ctx = document.getElementById('successChart').getContext('2d');
 const chart = new Chart(ctx, {
   type: 'line',
   data: {
     labels: [],
-    datasets: [{
-      label: '누적 성공률 (%)',
-      data: [],
-      borderColor: '#2196F3',
-      tension: 0.3
-    }]
+    datasets: [
+      {
+        label: '누적 성공률 (%)',
+        data: [],
+        borderColor: '#2196F3',
+        tension: 0.3,
+        yAxisID: 'y',
+      },
+      {
+        type: 'scatter',
+        label: '단계 상승 지점',
+        data: [],
+        pointBackgroundColor: 'red',
+        pointRadius: 4,
+        showLine: false,
+        yAxisID: 'y',
+      }
+    ]
   },
   options: {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { labels: { color: '#333' } }
+      legend: { labels: { color: '#333' } },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            const item = context.raw;
+            return item.label || `x: ${item.x}, y: ${item.y}`;
+          }
+        }
+      }
     },
     scales: {
       x: {
@@ -233,6 +234,28 @@ function themeUpdateChart() {
   chart.options.scales.y.title.color = isDark ? '#ddd' : '#333';
   chart.update();
 }
+</script>
+<script>
+const upgradeChances = [
+  { success: 100, failStepDown: false },
+  { success: 50, failStepDown: false },
+  { success: 50, failStepDown: false },
+  { success: 33, failStepDown: true },
+  { success: 33, failStepDown: true },
+  { success: 25, failStepDown: true },
+  { success: 20, failStepDown: true },
+  { success: 14, failStepDown: true },
+  { success: 10, failStepDown: true },
+];
+const costTable = {
+  N: { mil: 20000, er: 10 },
+  R: { mil: 50000, er: 20 },
+  SR: { mil: 100000, er: 30 },
+  SSR: { mil: 250000, er: 50 },
+};
+
+let level = 0, tries = 0, success = 0, mil = 0, er = 0, auto = false;
+let history = [];
 
 function calculateSequenceProbability() {
   if (!history.length) return 1;
@@ -285,6 +308,13 @@ function tryUpgrade() {
     level++; success++;
     log = `✨ +${prevLevel} 성공 → +${level}`;
     logClass = "success";
+
+    const rate = tries ? Math.round(success / tries * 10000) / 100 : 0;
+    chart.data.datasets[1].data.push({
+      x: tries,
+      y: rate,
+      label: `+${level} 성공`
+    });
   } else {
     if (chance.failStepDown) {
       level = Math.max(0, level - 1);
@@ -313,6 +343,7 @@ function reset() {
   document.getElementById("toolCount").textContent = "0";
   chart.data.labels = [];
   chart.data.datasets[0].data = [];
+  chart.data.datasets[1].data = [];
   chart.update();
   updateStatsDisplay(); updateDisplay();
 }
