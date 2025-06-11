@@ -126,7 +126,7 @@
     <div class="column">
       <h2>📊 시퀀스 확률이란?</h2>
       <p>강화 성공/실패/유지 흐름이 실제 표기된 확률 조건에서 발생할 수 있는 확률입니다.</p>
-      <p><strong>※</strong>강화 시도는 확률적으로 독립이며 반복 실패는 착시일 수 있습니다.</p>
+      <p><strong>※</strong>강화 시도는 확률적으로 독립이며 강화 시스템 구조를 지적하기 위해 제작되었습니다.</p>
 
       <div id="stats">
         <h3>📈 강화 통계 요약</h3>
@@ -339,6 +339,28 @@ function updateChart() {
   chart.data.labels.push(tries);
   chart.data.datasets[0].data.push(rate);
   chart.update();
+}
+
+function themeUpdateChart() {
+  const isDark = document.body.classList.contains('dark-mode');
+  const color = isDark ? '#ddd' : '#333';
+
+  // 누적 성공률 차트 (chart)
+  chart.options.plugins.legend.labels.color = color;
+  chart.options.scales.x.ticks.color = color;
+  chart.options.scales.y.ticks.color = color;
+  chart.options.scales.x.title.color = color;
+  chart.options.scales.y.title.color = color;
+
+  // 히스토그램 차트 (histogram)
+  histogram.options.plugins.legend.labels.color = color;
+  histogram.options.scales.x.ticks.color = color;
+  histogram.options.scales.y.ticks.color = color;
+  if (histogram.options.scales.x.title) histogram.options.scales.x.title.color = color;
+  if (histogram.options.scales.y.title) histogram.options.scales.y.title.color = color;
+
+  chart.update();
+  histogram.update();
 }
 
 function tryUpgrade() {
