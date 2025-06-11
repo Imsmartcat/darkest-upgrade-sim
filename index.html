@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8"/>
-  <title>강화 시뮬레이터 with 분포도</title>
+  <title>강화 시뮬레이터 확장</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -32,6 +32,7 @@
       box-shadow: 0 0 10px rgba(0,0,0,.05);
       display: flex;
       flex-direction: column;
+      overflow-y: auto;
       transition: background .3s, color .3s;
     }
     .dark-mode .column {
@@ -82,14 +83,25 @@
       50% { transform: translateX(1px); }
       75% { transform: translateX(-0.5px); }
     }
-    #chart-container {
+    #chart-container, #histogram-container {
       min-height: 220px;
       margin-top: 10px;
       flex-grow: 1;
     }
-    #chart-container canvas {
+    canvas {
       width: 100% !important;
       height: 100% !important;
+    }
+    .addon-box {
+      margin-top: 20px;
+      background: #fafafa;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    .dark-mode .addon-box {
+      background: #555;
+      border-color: #888;
     }
     footer {
       text-align: center;
@@ -108,21 +120,32 @@
   <div class="toggle-container">
     <button id="themeToggle">다크모드 켜기</button>
   </div>
+
   <div class="container">
+    <!-- 왼쪽 통계 영역 -->
     <div class="column">
       <h2>📊 시퀀스 확률이란?</h2>
-      <p>강화 성공/실패/유지 흐름이 실제 표기된 확률 조건에서 발생할 수 있는 확률</p>
-      <p>🔥 운이 나빴는지, 🧠 시스템이 공정한지 📊 통계적으로 판단할 수 있습니다.</p>
-      <p><strong>※</strong>강화 시도는 확률적으로 독립이며 반복 실패는 강화 시스템의 문제를 지적하기 위함입니다.</p>
+      <p>강화 성공/실패/유지 흐름이 실제 표기된 확률 조건에서 발생할 수 있는 확률입니다.</p>
+      <p><strong>※</strong>강화 시도는 확률적으로 독립이며 반복 실패는 착시일 수 있습니다.</p>
+
       <div id="stats">
         <h3>📈 강화 통계 요약</h3>
         <p>총 시도: <span id="statTotal">0</span>회</p>
         <p>성공: <span id="statSuccess">0</span> / 실패: <span id="statFail">0</span></p>
       </div>
+
       <div id="chart-container">
         <canvas id="successChart"></canvas>
       </div>
+
+      <!-- 🔢 추가: 단계별 성공/실패 히스토그램 -->
+      <div id="histogram-container" class="addon-box">
+        <h3>📊 단계별 히스토그램</h3>
+        <canvas id="stageHistogram"></canvas>
+      </div>
     </div>
+
+    <!-- 중앙 시뮬레이터 -->
     <div class="column center-column">
       <h1>강화 시뮬레이터</h1>
       <p>현재 단계: <span id="level">+0</span></p>
@@ -132,6 +155,7 @@
       <p>밀라 사용: <span id="mil">0</span></p>
       <p>ER 사용: <span id="er">0</span></p>
       <p>도구 사용: <span id="toolCount">0</span>개</p>
+
       <label>등급:
         <select id="grade"><option value="N">N</option><option value="R">R</option><option value="SR">SR</option><option value="SSR">SSR</option></select>
       </label><br/>
@@ -142,8 +166,17 @@
       <button onclick="stopAuto()">자동 강화 중지</button><br/>
       <button onclick="tryUpgrade()">강화 시도</button>
       <button onclick="reset()">초기화</button>
+
       <div class="log" id="log"></div>
+
+      <!-- 🔄 추가: 최근 10회 결과 요약 -->
+      <div class="addon-box">
+        <h3>🕒 최근 10회 요약</h3>
+        <p>성공: <span id="recentSuccess">0</span> / 실패: <span id="recentFail">0</span> / 유지: <span id="recentKeep">0</span></p>
+      </div>
     </div>
+
+    <!-- 오른쪽 자원 + 확장 기능 -->
     <div class="column">
       <h2>💰 자원 환산</h2>
       <p>밀라 단가: 0.185원</p>
@@ -155,78 +188,29 @@
       <p><strong>총 현금: <span id="totalCash">0</span>원</strong></p>
       <p>📦 패키지 수량: <span id="packageCount">0</span>개</p>
       <p>🧾 패키지 총비용: <span id="packagePrice">0</span>원</p>
+
+      <!-- 📈 추가: 평균 자원 예측 시뮬 -->
+      <div class="addon-box">
+        <h3>📈 평균 자원 시뮬레이터</h3>
+        <label>목표 단계: <input id="simTarget" type="number" min="1" max="9" value="6"/></label><br/>
+        <label>시뮬레이션 횟수: <input id="simCount" type="number" min="100" max="10000" value="1000"/></label><br/>
+        <button onclick="runSim()">평균 시뮬</button>
+        <p>📊 평균 밀라: <span id="simMil">0</span> / 평균 ER: <span id="simEr">0</span></p>
+      </div>
+
+      <!-- 🎯 추가: 목표 도달 확률 시뮬레이터 -->
+      <div class="addon-box">
+        <h3>🎯 목표 도달 확률 시뮬</h3>
+        <label>보유 밀라: <input id="testMil" type="number" value="5000000"/></label><br/>
+        <label>보유 ER: <input id="testEr" type="number" value="200"/></label><br/>
+        <label>목표 단계: <input id="testGoal" type="number" value="6"/></label><br/>
+        <button onclick="testProb()">확률 계산</button>
+        <p>도달 확률: <span id="reachProb">0%</span></p>
+      </div>
     </div>
   </div>
-  <footer>제작자: <strong>똑똑한 고양이</strong></footer>
-<script>
-const ctx = document.getElementById('successChart').getContext('2d');
-const chart = new Chart(ctx, {
-  type: 'line',
-  data: {
-    labels: [],
-    datasets: [
-      {
-        label: '누적 성공률 (%)',
-        data: [],
-        borderColor: '#2196F3',
-        tension: 0.3,
-        yAxisID: 'y'
-      },
-      {
-        type: 'scatter',
-        label: '단계 상승 지점',
-        data: [],
-        pointBackgroundColor: 'red',
-        pointRadius: 4,
-        showLine: false,
-        yAxisID: 'y'
-      }
-    ]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { labels: { color: '#333' } },
-      tooltip: {
-        callbacks: {
-          label: function(context) {
-            const ds = context.dataset;
-            const raw = context.raw;
-            if (ds.type === 'scatter') {
-              return raw.label || `단계: ${raw.x}, 성공률: ${raw.y}%`;
-            }
-            const val = typeof raw === 'number' ? raw : raw.y;
-            return `누적 성공률: ${val}%`;
-          }
-        }
-      }
-    },
-    scales: {
-      x: {
-        title: { display: true, text: '시도 횟수', color: '#333' },
-        ticks: { color: '#333' }
-      },
-      y: {
-        title: { display: true, text: '성공률 (%)', color: '#333' },
-        ticks: { color: '#333' },
-        beginAtZero: true,
-        max: 100
-      }
-    }
-  }
-});
 
-function themeUpdateChart() {
-  const dark = document.body.classList.contains('dark-mode');
-  chart.options.plugins.legend.labels.color = dark ? '#ddd' : '#333';
-  chart.options.scales.x.ticks.color = dark ? '#ddd' : '#333';
-  chart.options.scales.y.ticks.color = dark ? '#ddd' : '#333';
-  chart.options.scales.x.title.color = dark ? '#ddd' : '#333';
-  chart.options.scales.y.title.color = dark ? '#ddd' : '#333';
-  chart.update();
-}
-</script>
+  <footer>제작자: <strong>똑똑한 고양이</strong></footer>
 <script>
 const upgradeChances = [
   { success: 100, failStepDown: false },
@@ -239,6 +223,7 @@ const upgradeChances = [
   { success: 14, failStepDown: true },
   { success: 10, failStepDown: true }
 ];
+
 const costTable = {
   N: { mil: 20000, er: 10 },
   R: { mil: 50000, er: 20 },
@@ -246,97 +231,240 @@ const costTable = {
   SSR: { mil: 250000, er: 50 }
 };
 
-let level=0, tries=0, success=0, mil=0, er=0, auto=false, history=[];
+let level = 0, tries = 0, success = 0, mil = 0, er = 0, auto = false;
+let history = [];
+let stageData = Array(10).fill().map(() => ({ success: 0, fail: 0 }));
 
-function calculateSequenceProbability(){
-  if(!history.length) return 1;
-  return history.reduce((a,c)=>{
-    const r=c.rate/100;
-    return a*(c.result==='S'?r:(1-r));
-  },1);
-}
+// 📊 누적 성공률 차트
+const successCtx = document.getElementById('successChart').getContext('2d');
+const chart = new Chart(successCtx, {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [{
+      label: '누적 성공률 (%)',
+      data: [],
+      borderColor: '#2196F3',
+      tension: 0.3
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { labels: { color: '#333' } },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            const raw = context.raw;
+            return `누적 성공률: ${typeof raw === 'object' ? raw.y : raw}%`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: { title: { display: true, text: '시도 횟수', color: '#333' }, ticks: { color: '#333' } },
+      y: { title: { display: true, text: '성공률 (%)', color: '#333' }, ticks: { color: '#333' }, beginAtZero: true, max: 100 }
+    }
+  }
+});
 
-function updateStatsDisplay(){
+// 📊 단계별 히스토그램
+const histoCtx = document.getElementById('stageHistogram').getContext('2d');
+const histogram = new Chart(histoCtx, {
+  type: 'bar',
+  data: {
+    labels: Array.from({ length: 10 }, (_, i) => `+${i}`),
+    datasets: [
+      { label: '성공', data: stageData.map(d => d.success), backgroundColor: 'rgba(76, 175, 80, 0.6)' },
+      { label: '실패', data: stageData.map(d => d.fail), backgroundColor: 'rgba(244, 67, 54, 0.6)' }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      x: { stacked: true, ticks: { color: '#333' } },
+      y: { stacked: true, beginAtZero: true, ticks: { color: '#333' } }
+    },
+    plugins: {
+      legend: { labels: { color: '#333' } }
+    }
+  }
+});
+function updateStatsDisplay() {
   document.getElementById("statTotal").textContent = tries;
   document.getElementById("statSuccess").textContent = success;
-  document.getElementById("statFail").textContent = tries-success;
+  document.getElementById("statFail").textContent = tries - success;
 }
 
-function updateDisplay(){
-  document.getElementById("chanceRate").textContent = `${upgradeChances[level].success}%`;
+function updateDisplay() {
+  const rate = upgradeChances[level]?.success || 0;
+  document.getElementById("chanceRate").textContent = `${rate}%`;
   document.getElementById("level").textContent = `+${level}`;
   document.getElementById("tries").textContent = tries;
   document.getElementById("mil").textContent = mil.toLocaleString();
   document.getElementById("er").textContent = er;
-  const milWon = mil*0.185, erWon=er*370, total=milWon+erWon;
+  document.getElementById("toolCount").textContent = tries;
+  const milWon = mil * 0.185, erWon = er * 370, total = milWon + erWon;
   document.getElementById("totalMilWon").textContent = Math.round(milWon).toLocaleString();
   document.getElementById("totalErWon").textContent = Math.round(erWon).toLocaleString();
   document.getElementById("totalCash").textContent = Math.round(total).toLocaleString();
-  const pkg = Math.ceil(total/37000);
+  const pkg = Math.ceil(total / 37000);
   document.getElementById("packageCount").textContent = pkg;
-  document.getElementById("packagePrice").textContent = (pkg*37000).toLocaleString();
+  document.getElementById("packagePrice").textContent = (pkg * 37000).toLocaleString();
 }
 
-function updateChart(){
-  const rate = tries?Math.round(success/tries*10000)/100:0;
-  if(!isNaN(rate)){
-    chart.data.labels.push(tries);
-    chart.data.datasets[0].data.push(rate);
+function updateRecentStats() {
+  const recent = history.slice(-10);
+  let s = 0, f = 0, k = 0;
+  for (const h of recent) {
+    if (h.result === 'S') s++;
+    else if (h.keep) k++;
+    else f++;
   }
+  document.getElementById("recentSuccess").textContent = s;
+  document.getElementById("recentFail").textContent = f;
+  document.getElementById("recentKeep").textContent = k;
+}
+
+function updateHistogram() {
+  histogram.data.datasets[0].data = stageData.map(d => d.success);
+  histogram.data.datasets[1].data = stageData.map(d => d.fail);
+  histogram.update();
+}
+
+function updateChart() {
+  const rate = tries ? Math.round(success / tries * 10000) / 100 : 0;
+  chart.data.labels.push(tries);
+  chart.data.datasets[0].data.push(rate);
   chart.update();
 }
 
-function tryUpgrade(){
-  if(level>=9) return;
-  const prev=level;
-  const grade=document.getElementById("grade").value;
-  const cost=costTable[grade];
-  const chance=upgradeChances[level];
-  const ok = Math.random()*100 < chance.success;
-  tries++; mil+=cost.mil; er+=cost.er;
-  let log="", cls="";
-  if(ok){
+function tryUpgrade() {
+  if (level >= 9) return;
+  const prevLevel = level;
+  const grade = document.getElementById("grade").value;
+  const cost = costTable[grade];
+  const chance = upgradeChances[level];
+  const isSuccess = Math.random() * 100 < chance.success;
+
+  tries++; mil += cost.mil; er += cost.er;
+
+  let log = "", logClass = "";
+  if (isSuccess) {
     level++; success++;
-    log=`✨ +${prev} 성공 → +${level}`; cls="success";
-    const rate = Math.round(success/tries*10000)/100;
-    chart.data.datasets[1].data.push({x:tries,y:rate,label:`+${level} 성공`});
+    log = `✨ +${prevLevel} 성공 → +${level}`;
+    logClass = "success";
+    stageData[prevLevel].success++;
   } else {
-    if(chance.failStepDown){
-      level=Math.max(0,level-1);
-      log=`💀 +${prev} 실패(하락) → +${level}`; cls="fail-down";
+    if (chance.failStepDown) {
+      level = Math.max(0, level - 1);
+      log = `💀 +${prevLevel} 실패(하락) → +${level}`;
+      logClass = "fail-down";
+      stageData[prevLevel].fail++;
     } else {
-      log=`💥 +${prev} 실패(유지) → +${level}`; cls="fail-keep";
+      log = `💥 +${prevLevel} 실패(유지) → +${level}`;
+      logClass = "fail-keep";
+      stageData[prevLevel].fail++;
     }
   }
-  document.getElementById("log").innerHTML = `<div class="log-entry ${cls}">▶ ${log}</div>` + document.getElementById("log").innerHTML;
-  history.push({rate:chance.success,result:ok?'S':'F'});
-  document.getElementById("sequenceProb").textContent = `${(calculateSequenceProbability()*100).toFixed(18)}%`;
-  document.getElementById("toolCount").textContent = tries;
-  updateStatsDisplay(); updateDisplay(); updateChart();
+
+  document.getElementById("log").innerHTML =
+    `<div class="log-entry ${logClass}">▶ ${log}</div>` + document.getElementById("log").innerHTML;
+
+  history.push({ rate: chance.success, result: isSuccess ? 'S' : 'F', keep: !isSuccess && !chance.failStepDown });
+  document.getElementById("sequenceProb").textContent = `${(calculateSequenceProbability() * 100).toFixed(8)}%`;
+  updateStatsDisplay(); updateDisplay(); updateRecentStats(); updateChart(); updateHistogram();
 }
 
-function reset(){
-  level=tries=success=mil=er=0; history=[];
-  document.getElementById("log").innerHTML="";
-  document.getElementById("sequenceProb").textContent="0%";
-  document.getElementById("toolCount").textContent="0";
-  chart.data.labels=[]; chart.data.datasets[0].data=[]; chart.data.datasets[1].data=[];
-  chart.update(); updateStatsDisplay(); updateDisplay();
+function reset() {
+  level = tries = success = mil = er = 0;
+  history = [];
+  stageData = Array(10).fill().map(() => ({ success: 0, fail: 0 }));
+  document.getElementById("log").innerHTML = "";
+  document.getElementById("sequenceProb").textContent = "0%";
+  document.getElementById("toolCount").textContent = "0";
+  chart.data.labels = [];
+  chart.data.datasets[0].data = [];
+  chart.update();
+  updateStatsDisplay(); updateDisplay(); updateRecentStats(); updateHistogram();
 }
 
-function startAuto(){
-  const t= Math.min(9,Math.max(0,parseInt(document.getElementById("targetLevel").value)||0));
-  auto=true;
-  const interval=setInterval(()=>{
-    if(!auto||level>=t){clearInterval(interval);auto=false;} else tryUpgrade();
-  },250);
+function calculateSequenceProbability() {
+  if (!history.length) return 1;
+  return history.reduce((acc, cur) => {
+    const rate = cur.rate / 100;
+    return acc * (cur.result === 'S' ? rate : (1 - rate));
+  }, 1);
 }
 
-function stopAuto(){auto=false;}
+function startAuto() {
+  const target = Math.min(9, Math.max(0, parseInt(document.getElementById("targetLevel").value) || 0));
+  auto = true;
+  const interval = setInterval(() => {
+    if (!auto || level >= target) {
+      clearInterval(interval);
+      auto = false;
+    } else {
+      tryUpgrade();
+    }
+  }, 250);
+}
+function stopAuto() {
+  auto = false;
+}
+
+// 🎯 시뮬레이터 기능
+function runSim() {
+  const simLevel = parseInt(document.getElementById("simTarget").value) || 6;
+  const simCount = parseInt(document.getElementById("simCount").value) || 1000;
+  let totalMil = 0, totalEr = 0;
+
+  for (let i = 0; i < simCount; i++) {
+    let tmpLevel = 0, simMil = 0, simEr = 0;
+    while (tmpLevel < simLevel) {
+      const ch = upgradeChances[tmpLevel];
+      const success = Math.random() * 100 < ch.success;
+      simMil += costTable["SR"].mil;
+      simEr += costTable["SR"].er;
+      tmpLevel = success ? tmpLevel + 1 : ch.failStepDown ? Math.max(0, tmpLevel - 1) : tmpLevel;
+    }
+    totalMil += simMil;
+    totalEr += simEr;
+  }
+
+  document.getElementById("simMil").textContent = Math.round(totalMil / simCount).toLocaleString();
+  document.getElementById("simEr").textContent = Math.round(totalEr / simCount).toLocaleString();
+}
+
+function testProb() {
+  const budgetMil = parseInt(document.getElementById("testMil").value);
+  const budgetEr = parseInt(document.getElementById("testEr").value);
+  const goal = parseInt(document.getElementById("testGoal").value);
+
+  let reached = 0, trial = 1000;
+
+  for (let i = 0; i < trial; i++) {
+    let tmpLevel = 0, mil = 0, er = 0;
+    while (tmpLevel < goal && mil <= budgetMil && er <= budgetEr) {
+      const ch = upgradeChances[tmpLevel];
+      const s = Math.random() * 100 < ch.success;
+      mil += costTable["SR"].mil;
+      er += costTable["SR"].er;
+      tmpLevel = s ? tmpLevel + 1 : ch.failStepDown ? Math.max(0, tmpLevel - 1) : tmpLevel;
+    }
+    if (tmpLevel >= goal) reached++;
+  }
+
+  const percent = (reached / trial * 100).toFixed(2);
+  document.getElementById("reachProb").textContent = `${percent}%`;
+}
 
 document.getElementById("themeToggle").onclick = () => {
   document.body.classList.toggle("dark-mode");
-  document.getElementById("themeToggle").textContent = document.body.classList.contains("dark-mode")?"다크모드 끄기":"다크모드 켜기";
+  document.getElementById("themeToggle").textContent =
+    document.body.classList.contains("dark-mode") ? "다크모드 끄기" : "다크모드 켜기";
   themeUpdateChart();
 };
 
