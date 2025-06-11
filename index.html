@@ -60,28 +60,14 @@
     .log-entry.success {
       color: #4CAF50;
       font-weight: bold;
-      animation: sparkle .4s ease-out;
     }
     .log-entry.fail-down {
       color: #F44336;
       font-weight: bold;
-      animation: shake-soft .3s ease-in-out;
     }
     .log-entry.fail-keep {
       color: #FFC107;
       font-weight: bold;
-      animation: shake-soft .3s ease-out;
-    }
-    @keyframes sparkle {
-      0% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.07); opacity: 0.9; }
-      100% { transform: scale(1); opacity: 1; }
-    }
-    @keyframes shake-soft {
-      0%,100% { transform: translateX(0); }
-      25% { transform: translateX(-1px); }
-      50% { transform: translateX(1px); }
-      75% { transform: translateX(-0.5px); }
     }
     #chart-container, #histogram-container {
       min-height: 220px;
@@ -120,7 +106,6 @@
   <div class="toggle-container">
     <button id="themeToggle">다크모드 켜기</button>
   </div>
-
   <div class="container">
     <!-- 왼쪽 통계 영역 -->
     <div class="column">
@@ -134,11 +119,10 @@
         <p>성공: <span id="statSuccess">0</span> / 실패: <span id="statFail">0</span></p>
       </div>
 
-      <div id="chart-container"class="addon-box">
+      <div id="chart-container" class="addon-box">
         <canvas id="successChart"></canvas>
       </div>
 
-      <!-- 🔢 추가: 단계별 성공/실패 히스토그램 -->
       <div id="histogram-container" class="addon-box">
         <h3>📊 단계별 히스토그램</h3>
         <canvas id="stageHistogram"></canvas>
@@ -157,7 +141,12 @@
       <p>도구 사용: <span id="toolCount">0</span>개</p>
 
       <label>등급:
-        <select id="grade"><option value="N">N</option><option value="R">R</option><option value="SR">SR</option><option value="SSR">SSR</option></select>
+        <select id="grade">
+          <option value="N">N</option>
+          <option value="R">R</option>
+          <option value="SR">SR</option>
+          <option value="SSR">SSR</option>
+        </select>
       </label><br/>
       <label>목표 단계:
         <input id="targetLevel" type="number" min="0" max="9" value="0"/>
@@ -169,7 +158,6 @@
 
       <div class="log" id="log"></div>
 
-      <!-- 🔄 추가: 최근 10회 결과 요약 -->
       <div class="addon-box">
         <h3>🕒 최근 10회 요약</h3>
         <p>성공: <span id="recentSuccess">0</span> / 실패: <span id="recentFail">0</span> / 유지: <span id="recentKeep">0</span></p>
@@ -189,18 +177,32 @@
       <p>📦 패키지 수량: <span id="packageCount">0</span>개</p>
       <p>🧾 패키지 총비용: <span id="packagePrice">0</span>원</p>
 
-      <!-- 📈 추가: 평균 자원 예측 시뮬 -->
       <div class="addon-box">
         <h3>📈 평균 자원 시뮬레이터</h3>
+        <label>등급:
+          <select id="simGrade">
+            <option value="N">N</option>
+            <option value="R">R</option>
+            <option value="SR" selected>SR</option>
+            <option value="SSR">SSR</option>
+          </select>
+        </label><br/>
         <label>목표 단계: <input id="simTarget" type="number" min="1" max="9" value="6"/></label><br/>
         <label>시뮬레이션 횟수: <input id="simCount" type="number" min="100" max="10000" value="1000"/></label><br/>
         <button onclick="runSim()">평균 시뮬레이션</button>
         <p>📊 평균 밀라: <span id="simMil">0</span> / 평균 ER: <span id="simEr">0</span></p>
       </div>
 
-      <!-- 🎯 추가: 목표 도달 확률 시뮬레이터 -->
       <div class="addon-box">
         <h3>🎯 목표 도달 확률 시뮬레이션</h3>
+        <label>등급:
+          <select id="testGrade">
+            <option value="N">N</option>
+            <option value="R">R</option>
+            <option value="SR" selected>SR</option>
+            <option value="SSR">SSR</option>
+          </select>
+        </label><br/>
         <label>보유 밀라: <input id="testMil" type="number" value="5000000"/></label><br/>
         <label>보유 ER: <input id="testEr" type="number" value="200"/></label><br/>
         <label>목표 단계: <input id="testGoal" type="number" value="6"/></label><br/>
@@ -235,7 +237,7 @@ let level = 0, tries = 0, success = 0, mil = 0, er = 0, auto = false;
 let history = [];
 let stageData = Array(10).fill().map(() => ({ success: 0, fail: 0 }));
 
-// 📊 누적 성공률 차트
+// 차트 초기화
 const successCtx = document.getElementById('successChart').getContext('2d');
 const chart = new Chart(successCtx, {
   type: 'line',
@@ -251,25 +253,13 @@ const chart = new Chart(successCtx, {
   options: {
     responsive: true,
     maintainAspectRatio: false,
-    plugins: {
-      legend: { labels: { color: '#333' } },
-      tooltip: {
-        callbacks: {
-          label: function(context) {
-            const raw = context.raw;
-            return `누적 성공률: ${typeof raw === 'object' ? raw.y : raw}%`;
-          }
-        }
-      }
-    },
     scales: {
-      x: { title: { display: true, text: '시도 횟수', color: '#333' }, ticks: { color: '#333' } },
-      y: { title: { display: true, text: '성공률 (%)', color: '#333' }, ticks: { color: '#333' }, beginAtZero: true, max: 100 }
+      x: { title: { display: true, text: '시도 횟수' } },
+      y: { title: { display: true, text: '성공률 (%)' }, beginAtZero: true, max: 100 }
     }
   }
 });
 
-// 📊 단계별 히스토그램
 const histoCtx = document.getElementById('stageHistogram').getContext('2d');
 const histogram = new Chart(histoCtx, {
   type: 'bar',
@@ -284,14 +274,12 @@ const histogram = new Chart(histoCtx, {
     responsive: true,
     maintainAspectRatio: false,
     scales: {
-      x: { stacked: true, ticks: { color: '#333' } },
-      y: { stacked: true, beginAtZero: true, ticks: { color: '#333' } }
-    },
-    plugins: {
-      legend: { labels: { color: '#333' } }
+      x: { stacked: true },
+      y: { stacked: true, beginAtZero: true }
     }
   }
 });
+
 function updateStatsDisplay() {
   document.getElementById("statTotal").textContent = tries;
   document.getElementById("statSuccess").textContent = success;
@@ -341,28 +329,6 @@ function updateChart() {
   chart.update();
 }
 
-function themeUpdateChart() {
-  const isDark = document.body.classList.contains('dark-mode');
-  const color = isDark ? '#ddd' : '#333';
-
-  // 누적 성공률 차트 (chart)
-  chart.options.plugins.legend.labels.color = color;
-  chart.options.scales.x.ticks.color = color;
-  chart.options.scales.y.ticks.color = color;
-  chart.options.scales.x.title.color = color;
-  chart.options.scales.y.title.color = color;
-
-  // 히스토그램 차트 (histogram)
-  histogram.options.plugins.legend.labels.color = color;
-  histogram.options.scales.x.ticks.color = color;
-  histogram.options.scales.y.ticks.color = color;
-  if (histogram.options.scales.x.title) histogram.options.scales.x.title.color = color;
-  if (histogram.options.scales.y.title) histogram.options.scales.y.title.color = color;
-
-  chart.update();
-  histogram.update();
-}
-
 function tryUpgrade() {
   if (level >= 9) return;
   const prevLevel = level;
@@ -399,6 +365,13 @@ function tryUpgrade() {
   document.getElementById("sequenceProb").textContent = `${(calculateSequenceProbability() * 100).toFixed(8)}%`;
   updateStatsDisplay(); updateDisplay(); updateRecentStats(); updateChart(); updateHistogram();
 }
+function calculateSequenceProbability() {
+  if (!history.length) return 1;
+  return history.reduce((acc, cur) => {
+    const rate = cur.rate / 100;
+    return acc * (cur.result === 'S' ? rate : (1 - rate));
+  }, 1);
+}
 
 function reset() {
   level = tries = success = mil = er = 0;
@@ -413,14 +386,6 @@ function reset() {
   updateStatsDisplay(); updateDisplay(); updateRecentStats(); updateHistogram();
 }
 
-function calculateSequenceProbability() {
-  if (!history.length) return 1;
-  return history.reduce((acc, cur) => {
-    const rate = cur.rate / 100;
-    return acc * (cur.result === 'S' ? rate : (1 - rate));
-  }, 1);
-}
-
 function startAuto() {
   const target = Math.min(9, Math.max(0, parseInt(document.getElementById("targetLevel").value) || 0));
   auto = true;
@@ -433,14 +398,15 @@ function startAuto() {
     }
   }, 250);
 }
+
 function stopAuto() {
   auto = false;
 }
 
-// 🎯 시뮬레이터 기능
 function runSim() {
   const simLevel = parseInt(document.getElementById("simTarget").value) || 6;
   const simCount = parseInt(document.getElementById("simCount").value);
+  const grade = document.getElementById("simGrade").value;
 
   if (isNaN(simCount) || simCount < 100 || simCount > 10000) {
     alert("시뮬레이션 횟수는 100 이상 10,000 이하로 입력해주세요.");
@@ -454,8 +420,8 @@ function runSim() {
     while (tmpLevel < simLevel) {
       const ch = upgradeChances[tmpLevel];
       const success = Math.random() * 100 < ch.success;
-      simMil += costTable["SR"].mil;
-      simEr += costTable["SR"].er;
+      simMil += costTable[grade].mil;
+      simEr += costTable[grade].er;
       tmpLevel = success ? tmpLevel + 1 : ch.failStepDown ? Math.max(0, tmpLevel - 1) : tmpLevel;
     }
     totalMil += simMil;
@@ -470,6 +436,7 @@ function testProb() {
   const budgetMil = parseInt(document.getElementById("testMil").value);
   const budgetEr = parseInt(document.getElementById("testEr").value);
   const goal = parseInt(document.getElementById("testGoal").value);
+  const grade = document.getElementById("testGrade").value;
 
   let reached = 0, trial = 1000;
 
@@ -478,14 +445,14 @@ function testProb() {
     while (tmpLevel < goal && mil <= budgetMil && er <= budgetEr) {
       const ch = upgradeChances[tmpLevel];
       const s = Math.random() * 100 < ch.success;
-      mil += costTable["SR"].mil;
-      er += costTable["SR"].er;
+      mil += costTable[grade].mil;
+      er += costTable[grade].er;
       tmpLevel = s ? tmpLevel + 1 : ch.failStepDown ? Math.max(0, tmpLevel - 1) : tmpLevel;
     }
     if (tmpLevel >= goal) reached++;
   }
 
-  const percent = (reached / trial * 100).toFixed(2);
+  const percent = (reached / trial * 100).toFixed(12);
   document.getElementById("reachProb").textContent = `${percent}%`;
 }
 
@@ -493,7 +460,6 @@ document.getElementById("themeToggle").onclick = () => {
   document.body.classList.toggle("dark-mode");
   document.getElementById("themeToggle").textContent =
     document.body.classList.contains("dark-mode") ? "다크모드 끄기" : "다크모드 켜기";
-  themeUpdateChart();
 };
 
 window.onload = reset;
