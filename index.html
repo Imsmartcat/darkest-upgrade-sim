@@ -2,103 +2,43 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>다키스트 데이즈 강화 시뮬레이터</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body {
-      height: 100%;
-      font-family: sans-serif;
-      background: #f5f5f5;
-      color: #333;
-      transition: background .3s, color .3s;
-    }
-    .dark-mode {
-      background: #2e2e2e;
-      color: #ddd;
-    }
-    .container {
-      display: flex;
-      justify-content: space-between;
-      height: calc(100vh - 50px);
-      padding: 10px;
-      gap: 10px;
-    }
-    .column {
-      flex: 1;
-      background: white;
-      padding: 15px;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0,0,0,.05);
-      display: flex;
-      flex-direction: column;
-      overflow-y: auto;
-      transition: background .3s, color .3s;
-    }
-    .dark-mode .column {
-      background: #444;
-      color: #ddd;
-    }
-    .center-column { text-align: center; }
-    .log {
-      flex: 1;
-      text-align: left;
-      margin-top: 10px;
-      overflow-y: auto;
-      background: #f0f0f0;
-      padding: 10px;
-      border-radius: 5px;
-      font-size: 0.9rem;
-    }
-    .dark-mode .log { background: #555; }
-    input, select, button {
-      margin: 3px;
-      padding: 5px;
-    }
-    h1, h2, h3 { margin-bottom: 10px; font-size: 1.1rem; }
-    p { margin: 4px 0; font-size: 0.95rem; }
-    .log-entry.success {
-      color: #4CAF50;
-      font-weight: bold;
-    }
-    .log-entry.fail-down {
-      color: #F44336;
-      font-weight: bold;
-    }
-    .log-entry.fail-keep {
-      color: #FFC107;
-      font-weight: bold;
-    }
-    #chart-container, #histogram-container {
-      min-height: 220px;
-      margin-top: 10px;
-      flex-grow: 1;
-    }
-    canvas {
-      width: 100% !important;
-      height: 100% !important;
-    }
-    .addon-box {
-      margin-top: 20px;
-      background: #fafafa;
-      padding: 10px;
-      border: 1px solid #ddd;
-      border-radius: 5px;
-    }
-    .dark-mode .addon-box {
-      background: #555;
-      border-color: #888;
-    }
-    footer {
-      text-align: center;
-      font-size: .9rem;
-      color: gray;
-      margin-top: 10px;
-    }
-    .toggle-container {
-      text-align: right;
-      margin-bottom: 5px;
-      padding-right: 10px;
+    * { box-sizing: border-box; margin:0; padding:0; }
+    html, body { height:100%; font-family:sans-serif; background:#f5f5f5; color:#333; transition:background .3s,color .3s; }
+    .dark-mode { background:#2e2e2e; color:#ddd; }
+    .container { display:flex; justify-content:space-between; height:calc(100vh - 50px); padding:10px; gap:10px; }
+    .column { flex:1; background:white; padding:15px; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,.05); display:flex; flex-direction:column; overflow-y:auto; transition:background .3s,color .3s; }
+    .dark-mode .column { background:#444; color:#ddd; }
+    .center-column { text-align:center; }
+    .log { flex:1; margin-top:10px; background:#f0f0f0; padding:10px; border-radius:5px; font-size:.9rem; overflow-y:auto; }
+    .dark-mode .log { background:#555; }
+    input, select, button { margin:3px; padding:5px; }
+    h1,h2,h3 { margin-bottom:10px; font-size:1.1rem; }
+    p { margin:4px 0; font-size:.95rem; }
+    .log-entry.success { color:#4CAF50; font-weight:bold; }
+    .log-entry.fail-down { color:#F44336; font-weight:bold; }
+    .log-entry.fail-keep { color:#FFC107; font-weight:bold; }
+    #chart-container,#histogram-container { min-height:220px; margin-top:10px; flex-grow:1; }
+    canvas { width:100%!important; height:100%!important; }
+    .addon-box { margin-top:20px; background:#fafafa; padding:10px; border:1px solid #ddd; border-radius:5px; }
+    .dark-mode .addon-box { background:#555; border-color:#888; }
+    footer { text-align:center; font-size:.9rem; color:gray; margin-top:10px; }
+    .toggle-container { text-align:right; margin-bottom:5px; padding-right:10px; }
+
+    /* 모바일 대응 추가 */
+    @media (max-width:768px), (hover:none) and (pointer:coarse) {
+      .container { flex-direction:column; height:auto; }
+      .column { width:100%; min-height:auto; margin-bottom:15px; }
+      .center-column { padding:10px 0; }
+      .toggle-container { text-align:center; padding-right:0; margin-bottom:15px; }
+      input, select, button { width:100%; margin:8px 0; font-size:1rem; }
+      .addon-box { margin-top:15px; }
+      .log { max-height:180px; }
+      #chart-container, #histogram-container { height:220px!important; }
+      #chart-container canvas, #histogram-container canvas { height:100%!important; max-height:220px; }
     }
   </style>
 </head>
@@ -107,362 +47,333 @@
     <button id="themeToggle">다크모드 켜기</button>
   </div>
   <div class="container">
-    <!-- 왼쪽 통계 영역 -->
+    <!-- 왼쪽 통계 -->
     <div class="column">
       <h2>📊 시퀀스 확률이란?</h2>
       <p>강화 성공/실패/유지 흐름이 실제 표기된 확률 조건에서 발생할 수 있는 확률입니다.</p>
       <p><strong>※</strong>강화는 확률적으로 독립이며 강화 시스템 구조를 지적하기 위해 제작되었습니다.</p>
       <br/>
       <div id="stats">
-        <h3>📈 강화 통계 요약</h3>
-        <p>총 시도: <span id="statTotal">0</span>회</p>
+        <h3>📈 강화 통계</h3>
+        <p>총 시도: <span id="statTotal">0</span></p>
         <p>성공: <span id="statSuccess">0</span> / 실패: <span id="statFail">0</span></p>
       </div>
-
-      <div id="chart-container" class="addon-box">
-        <canvas id="successChart"></canvas>
-      </div>
-
-      <div id="histogram-container" class="addon-box">
-        <h3>📊 단계별 히스토그램</h3>
-        <canvas id="stageHistogram"></canvas>
-      </div>
+      <div id="chart-container" class="addon-box"><canvas id="successChart"></canvas></div>
+      <div id="histogram-container" class="addon-box"><canvas id="stageHistogram"></canvas></div>
     </div>
 
-    <!-- 중앙 시뮬레이터 -->
+    <!-- 중앙 -->
     <div class="column center-column">
       <h1>다키스트 데이즈 강화 시뮬레이터</h1>
       <p>현재 단계: <span id="level">+0</span></p>
       <p>시도 횟수: <span id="tries">0</span></p>
       <p>성공 확률: <span id="chanceRate">100%</span></p>
       <p>📊시퀀스 확률: <span id="sequenceProb">0%</span></p>
-      <p>밀라 사용: <span id="mil">0</span></p>
-      <p>ER 사용: <span id="er">0</span></p>
-      <p>도구 사용: <span id="toolCount">0</span>개</p>
-
+      <p>밀라: <span id="mil">0</span> / ER: <span id="er">0</span> / 도구: <span id="toolCount">0</span></p>
       <label>등급:
-        <select id="grade">
-          <option value="N">N</option>
-          <option value="R">R</option>
-          <option value="SR">SR</option>
-          <option value="SSR">SSR</option>
-        </select>
+        <select id="grade"><option>N</option><option>R</option><option selected>SR</option><option>SSR</option></select>
       </label><br/>
-      <label>목표 단계:
-        <input id="targetLevel" type="number" min="0" max="9" value="0"/>
-      </label><br/>
-      <button onclick="startAuto()">자동 강화 시작</button>
-      <button onclick="stopAuto()">자동 강화 중지</button><br/>
-      <button onclick="tryUpgrade()">강화 시도</button>
+      <label>목표 단계: <input id="targetLevel" type="number" min="0" max="9" value="0"/></label><br/>
+      <button onclick="startAuto()">자동 강화</button>
+      <button onclick="stopAuto()">자동 중지</button><br/>
+      <button onclick="tryUpgrade()">단일 강화</button>
       <button onclick="reset()">초기화</button>
-
       <div class="log" id="log"></div>
-
       <div class="addon-box">
-        <h3>🕒 최근 10회 요약</h3>
+        <h3>🕒 최근 10회</h3>
         <p>성공: <span id="recentSuccess">0</span> / 실패: <span id="recentFail">0</span> / 유지: <span id="recentKeep">0</span></p>
       </div>
     </div>
-
-    <!-- 오른쪽 자원 + 확장 기능 -->
+    <!-- 오른쪽 -->
     <div class="column">
-      <h2>💰 자원 환산</h2>
-      <p>밀라 단가: 0.185원</p>
-      <p>ER 단가: 370원</p>
-      <p><strong>특별 강화 패키지 3 (₩37,000)</strong></p>
+      <h2>💰 자원 계산</h2>
+      <p>밀라 단가: 0.185원, ER 단가: 370원</p>
+      <p>패키지: ₩37,000</p>
       <p>밀라 환산: <span id="totalMilWon">0</span>원</p>
       <p>ER 환산: <span id="totalErWon">0</span>원</p>
       <hr/>
-      <p><strong>총 현금: <span id="totalCash">0</span>원</strong></p>
-      <p>📦 패키지 수량: <span id="packageCount">0</span>개</p>
-      <p>🧾 패키지 총비용: <span id="packagePrice">0</span>원</p>
-
+      <p>총 현금: <span id="totalCash">0</span>원</p>
+      <p>패키지 수: <span id="packageCount">0</span>개</p>
+      <p>총 비용: <span id="packagePrice">0</span>원</p>
       <div class="addon-box">
-        <h3>📈 평균 자원 시뮬레이터</h3>
+        <h3>평균 재화 소모 시뮬레이션</h3>
         <label>등급:
-          <select id="simGrade">
-            <option value="N">N</option>
-            <option value="R">R</option>
-            <option value="SR" selected>SR</option>
-            <option value="SSR">SSR</option>
-          </select>
+          <select id="simGrade"><option>N</option><option>R</option><option selected>SR</option><option>SSR</option></select>
         </label><br/>
-        <label>목표 단계: <input id="simTarget" type="number" min="1" max="9" value="6"/></label><br/>
-        <label>시뮬레이션 횟수: <input id="simCount" type="number" min="100" max="10000" value="1000"/></label><br/>
-        <button onclick="runSim()">평균 시뮬레이션</button>
-        <p>📊 평균 밀라: <span id="simMil">0</span> / 평균 ER: <span id="simEr">0</span></p>
+        <label>단계: <input id="simTarget" type="number" min="1" max="9" value="6"/></label><br/>
+        <label>횟수: <input id="simCount" type="number" min="100" max="10000" value="1000"/></label><br/>
+        <button onclick="runSim()">평균 계산</button>
+        <p>밀라: <span id="simMil">0</span>, ER: <span id="simEr">0</span></p>
       </div>
-
       <div class="addon-box">
-        <h3>🎯 목표 도달 확률 시뮬레이션</h3>
+        <h3>목표 도달 확률 시뮬레이션</h3>
         <label>등급:
-          <select id="testGrade">
-            <option value="N">N</option>
-            <option value="R">R</option>
-            <option value="SR" selected>SR</option>
-            <option value="SSR">SSR</option>
-          </select>
+          <select id="testGrade"><option>N</option><option>R</option><option selected>SR</option><option>SSR</option></select>
         </label><br/>
-        <label>보유 밀라: <input id="testMil" type="number" value="5000000"/></label><br/>
-        <label>보유 ER: <input id="testEr" type="number" value="200"/></label><br/>
+        <label>밀라 보유: <input id="testMil" type="number" value="5000000"/></label><br/>
+        <label>ER 보유: <input id="testEr" type="number" value="200"/></label><br/>
         <label>목표 단계: <input id="testGoal" type="number" value="6"/></label><br/>
         <button onclick="testProb()">확률 계산</button>
-        <p>도달 확률: <span id="reachProb">0%</span></p>
+        <p>도달확률: <span id="reachProb">0%</span></p>
       </div>
     </div>
   </div>
-
   <footer>제작자: <strong>똑똑한 고양이</strong></footer>
 <script>
-const upgradeChances = [
-  { success: 100, failStepDown: false },
-  { success: 50, failStepDown: false },
-  { success: 50, failStepDown: false },
-  { success: 33, failStepDown: true },
-  { success: 33, failStepDown: true },
-  { success: 25, failStepDown: true },
-  { success: 20, failStepDown: true },
-  { success: 14, failStepDown: true },
-  { success: 10, failStepDown: true }
-];
+  // ✅ 기본 데이터 및 초기화
+  const upgradeChances = [
+    { success: 100, failStepDown: false },
+    { success: 50,  failStepDown: false },
+    { success: 50,  failStepDown: false },
+    { success: 33,  failStepDown: true },
+    { success: 33,  failStepDown: true },
+    { success: 25,  failStepDown: true },
+    { success: 20,  failStepDown: true },
+    { success: 14,  failStepDown: true },
+    { success: 10,  failStepDown: true }
+  ];
+  const costTable = {
+    N:   { mil: 20000, er: 10 },
+    R:   { mil: 50000, er: 20 },
+    SR:  { mil: 100000, er: 30 },
+    SSR: { mil: 250000, er: 50 }
+  };
 
-const costTable = {
-  N: { mil: 20000, er: 10 },
-  R: { mil: 50000, er: 20 },
-  SR: { mil: 100000, er: 30 },
-  SSR: { mil: 250000, er: 50 }
-};
+  let level = 0,
+      tries = 0,
+      success = 0,
+      mil = 0,
+      er = 0,
+      auto = false,
+      history = [],
+      stageData = Array.from({ length: 10 }, () => ({ success:0, fail:0, keep:0 }));
 
-let level = 0, tries = 0, success = 0, mil = 0, er = 0, auto = false;
-let history = [];
-let stageData = Array(10).fill().map(() => ({ success: 0, fail: 0 }));
-
-// 차트 초기화
-const successCtx = document.getElementById('successChart').getContext('2d');
-const chart = new Chart(successCtx, {
-  type: 'line',
-  data: {
-    labels: [],
-    datasets: [{
-      label: '누적 성공률 (%)',
-      data: [],
-      borderColor: '#2196F3',
-      tension: 0.3
-    }]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      x: { title: { display: true, text: '시도 횟수' } },
-      y: { title: { display: true, text: '성공률 (%)' }, beginAtZero: true, max: 100 }
+  // 📊 차트 초기화
+  const successCtx = document.getElementById('successChart').getContext('2d');
+  const chart = new Chart(successCtx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{ label: '누적 성공률 (%)', data: [], borderColor: '#2196F3', tension: 0.3 }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { ticks: { color: '#333' }, title: { display: true, text: '시도 횟수' } },
+        y: { ticks: { color: '#333' }, title: { display: true, text: '성공률 (%)' }, beginAtZero: true, max: 100 }
+      },
+      plugins: { legend: { labels: { color: '#333' } } }
     }
-  }
-});
+  });
 
-const histoCtx = document.getElementById('stageHistogram').getContext('2d');
-const histogram = new Chart(histoCtx, {
-  type: 'bar',
-  data: {
-    labels: Array.from({ length: 10 }, (_, i) => `+${i}`),
-    datasets: [
-      { label: '성공', data: stageData.map(d => d.success), backgroundColor: 'rgba(76, 175, 80, 0.6)' },
-      { label: '실패', data: stageData.map(d => d.fail), backgroundColor: 'rgba(244, 67, 54, 0.6)' }
-    ]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      x: { stacked: true },
-      y: { stacked: true, beginAtZero: true }
+  const histoCtx = document.getElementById('stageHistogram').getContext('2d');
+  const histogram = new Chart(histoCtx, {
+    type: 'bar',
+    data: {
+      labels: Array.from({ length: 10 }, (_, i) => `+${i}`),
+      datasets: [
+        { label: '성공', data: stageData.map(d=>d.success), backgroundColor: 'rgba(76,175,80,0.6)' },
+        { label: '실패', data: stageData.map(d=>d.fail),   backgroundColor: 'rgba(244,67,54,0.6)' },
+        { label: '유지', data: stageData.map(d=>d.keep),   backgroundColor: 'rgba(255,193,7,0.6)' }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { stacked: true, ticks: { color: '#333' } },
+        y: { stacked: true, beginAtZero: true, ticks: { color: '#333' } }
+      },
+      plugins: { legend: { labels: { color: '#333' } } }
     }
+  });
+
+  // 🌓 다크 모드 차트 테마
+  function applyDarkChartTheme(isDark) {
+    const col = isDark ? '#ddd' : '#333';
+    [chart, histogram].forEach(c => {
+      c.options.scales.x.ticks.color = col;
+      c.options.scales.y.ticks.color = col;
+      c.options.plugins.legend.labels.color = col;
+      c.update();
+    });
   }
-});
 
-function updateStatsDisplay() {
-  document.getElementById("statTotal").textContent = tries;
-  document.getElementById("statSuccess").textContent = success;
-  document.getElementById("statFail").textContent = tries - success;
-}
+  // 🔄 모든 UI와 차트 갱신
+  function updateAll() {
+    document.getElementById('statTotal').textContent = tries;
+    document.getElementById('statSuccess').textContent = success;
+    document.getElementById('statFail').textContent = tries - success;
+    document.getElementById('chanceRate').textContent = `${upgradeChances[level].success}%`;
+    document.getElementById('level').textContent = `+${level}`;
+    document.getElementById('tries').textContent = tries;
+    document.getElementById('mil').textContent = mil.toLocaleString();
+    document.getElementById('er').textContent = er;
+    document.getElementById('toolCount').textContent = tries;
 
-function updateDisplay() {
-  const rate = upgradeChances[level]?.success || 0;
-  document.getElementById("chanceRate").textContent = `${rate}%`;
-  document.getElementById("level").textContent = `+${level}`;
-  document.getElementById("tries").textContent = tries;
-  document.getElementById("mil").textContent = mil.toLocaleString();
-  document.getElementById("er").textContent = er;
-  document.getElementById("toolCount").textContent = tries;
-  const milWon = mil * 0.185, erWon = er * 370, total = milWon + erWon;
-  document.getElementById("totalMilWon").textContent = Math.round(milWon).toLocaleString();
-  document.getElementById("totalErWon").textContent = Math.round(erWon).toLocaleString();
-  document.getElementById("totalCash").textContent = Math.round(total).toLocaleString();
-  const pkg = Math.ceil(total / 37000);
-  document.getElementById("packageCount").textContent = pkg;
-  document.getElementById("packagePrice").textContent = (pkg * 37000).toLocaleString();
-}
+    const milWon = mil * 0.185;
+    const erWon = er * 370;
+    const total = milWon + erWon;
+    document.getElementById('totalMilWon').textContent = Math.round(milWon).toLocaleString();
+    document.getElementById('totalErWon').textContent = Math.round(erWon).toLocaleString();
+    document.getElementById('totalCash').textContent = Math.round(total).toLocaleString();
 
-function updateRecentStats() {
-  const recent = history.slice(-10);
-  let s = 0, f = 0, k = 0;
-  for (const h of recent) {
-    if (h.result === 'S') s++;
-    else if (h.keep) k++;
-    else f++;
+    const pkg = Math.ceil(total / 37000);
+    document.getElementById('packageCount').textContent = pkg;
+    document.getElementById('packagePrice').textContent = (pkg * 37000).toLocaleString();
+
+    const recent = history.slice(-10);
+    const rS = recent.filter(h => h.result === 'S').length;
+    const rK = recent.filter(h => h.keep).length;
+    const rF = recent.length - rS - rK;
+    document.getElementById('recentSuccess').textContent = rS;
+    document.getElementById('recentFail').textContent = rF;
+    document.getElementById('recentKeep').textContent = rK;
+
+    chart.data.labels.push(tries);
+    chart.data.datasets[0].data.push(tries ? +(success / tries * 100).toFixed(2) : 0);
+    chart.update();
+
+    histogram.data.datasets[0].data = stageData.map(d => d.success);
+    histogram.data.datasets[1].data = stageData.map(d => d.fail);
+    histogram.data.datasets[2].data = stageData.map(d => d.keep);
+    histogram.update();
   }
-  document.getElementById("recentSuccess").textContent = s;
-  document.getElementById("recentFail").textContent = f;
-  document.getElementById("recentKeep").textContent = k;
-}
 
-function updateHistogram() {
-  histogram.data.datasets[0].data = stageData.map(d => d.success);
-  histogram.data.datasets[1].data = stageData.map(d => d.fail);
-  histogram.update();
-}
+  // 🔢 시퀀스 확률 계산
+  function calculateSequenceProbability() {
+    return history.reduce((acc, cur) =>
+      acc * (cur.result === 'S' ? cur.rate / 100 : 1 - cur.rate / 100), 1
+    );
+  }
 
-function updateChart() {
-  const rate = tries ? Math.round(success / tries * 10000) / 100 : 0;
-  chart.data.labels.push(tries);
-  chart.data.datasets[0].data.push(rate);
-  chart.update();
-}
+  // 🔼 강화 시도
+  function tryUpgrade() {
+    if (level >= 9) return;
+    const prev = level;
+    const grade = document.getElementById('grade').value;
+    const cost = costTable[grade];
+    const chance = upgradeChances[level];
+    const ok = Math.random() * 100 < chance.success;
 
-function tryUpgrade() {
-  if (level >= 9) return;
-  const prevLevel = level;
-  const grade = document.getElementById("grade").value;
-  const cost = costTable[grade];
-  const chance = upgradeChances[level];
-  const isSuccess = Math.random() * 100 < chance.success;
+    tries++;
+    mil += cost.mil;
+    er += cost.er;
 
-  tries++; mil += cost.mil; er += cost.er;
-
-  let log = "", logClass = "";
-  if (isSuccess) {
-    level++; success++;
-    log = `✨ +${prevLevel} 성공 → +${level}`;
-    logClass = "success";
-    stageData[prevLevel].success++;
-  } else {
-    if (chance.failStepDown) {
+    let log = '', cls = '';
+    if (ok) {
+      level++;
+      success++;
+      stageData[prev].success++;
+      log = `✨ +${prev} 성공 → +${level}`;
+      cls = 'success';
+    } else if (chance.failStepDown) {
       level = Math.max(0, level - 1);
-      log = `💀 +${prevLevel} 실패(하락) → +${level}`;
-      logClass = "fail-down";
-      stageData[prevLevel].fail++;
+      stageData[prev].fail++;
+      log = `💀 +${prev} 실패(하락) → +${level}`;
+      cls = 'fail-down';
     } else {
-      log = `💥 +${prevLevel} 실패(유지) → +${level}`;
-      logClass = "fail-keep";
-      stageData[prevLevel].fail++;
+      stageData[prev].keep++;
+      log = `💥 +${prev} 실패(유지) → +${level}`;
+      cls = 'fail-keep';
     }
+
+    document.getElementById('log').innerHTML = `<div class="log-entry ${cls}">▶ ${log}</div>` + document.getElementById('log').innerHTML;
+    history.push({ rate: chance.success, result: ok ? 'S' : 'F', keep: !ok && !chance.failStepDown });
+    document.getElementById('sequenceProb').textContent = (calculateSequenceProbability() * 100).toFixed(8) + '%';
+    updateAll();
   }
 
-  document.getElementById("log").innerHTML =
-    `<div class="log-entry ${logClass}">▶ ${log}</div>` + document.getElementById("log").innerHTML;
+  // ▶ 자동 강화
+  function startAuto() {
+    const tgt = parseInt(document.getElementById('targetLevel').value) || 0;
+    auto = true;
+    const iv = setInterval(() => {
+      if (!auto || level >= tgt) clearInterval(iv);
+      else tryUpgrade();
+    }, 250);
+  }
+  function stopAuto() { auto = false; }
 
-  history.push({ rate: chance.success, result: isSuccess ? 'S' : 'F', keep: !isSuccess && !chance.failStepDown });
-  document.getElementById("sequenceProb").textContent = `${(calculateSequenceProbability() * 100).toFixed(8)}%`;
-  updateStatsDisplay(); updateDisplay(); updateRecentStats(); updateChart(); updateHistogram();
-}
-function calculateSequenceProbability() {
-  if (!history.length) return 1;
-  return history.reduce((acc, cur) => {
-    const rate = cur.rate / 100;
-    return acc * (cur.result === 'S' ? rate : (1 - rate));
-  }, 1);
-}
+  // 🔁 평균 시뮬레이션
+  function runSim() {
+    const tgt = parseInt(document.getElementById('simTarget').value) || 1;
+    const cnt = parseInt(document.getElementById('simCount').value) || 0;
+    const grade = document.getElementById('simGrade').value;
+    if (cnt < 100 || cnt > 10000) return alert('시뮬레이션 횟수는 100~10000입니다.');
 
-function reset() {
-  level = tries = success = mil = er = 0;
-  history = [];
-  stageData = Array(10).fill().map(() => ({ success: 0, fail: 0 }));
-  document.getElementById("log").innerHTML = "";
-  document.getElementById("sequenceProb").textContent = "0%";
-  document.getElementById("toolCount").textContent = "0";
-  chart.data.labels = [];
-  chart.data.datasets[0].data = [];
-  chart.update();
-  updateStatsDisplay(); updateDisplay(); updateRecentStats(); updateHistogram();
-}
-
-function startAuto() {
-  const target = Math.min(9, Math.max(0, parseInt(document.getElementById("targetLevel").value) || 0));
-  auto = true;
-  const interval = setInterval(() => {
-    if (!auto || level >= target) {
-      clearInterval(interval);
-      auto = false;
-    } else {
-      tryUpgrade();
+    let totalMil = 0, totalEr = 0;
+    for (let i = 0; i < cnt; i++) {
+      let lv = 0, m = 0, e = 0;
+      while (lv < tgt) {
+        const ch = upgradeChances[lv];
+        const ok = Math.random() * 100 < ch.success;
+        m += costTable[grade].mil;
+        e += costTable[grade].er;
+        lv = ok ? lv + 1 : (ch.failStepDown ? Math.max(0, lv - 1) : lv);
+      }
+      totalMil += m;
+      totalEr += e;
     }
-  }, 250);
-}
 
-function stopAuto() {
-  auto = false;
-}
-
-function runSim() {
-  const simLevel = parseInt(document.getElementById("simTarget").value) || 6;
-  const simCount = parseInt(document.getElementById("simCount").value);
-  const grade = document.getElementById("simGrade").value;
-
-  if (isNaN(simCount) || simCount < 100 || simCount > 10000) {
-    alert("시뮬레이션 횟수는 100 이상 10,000 이하로 입력해주세요.");
-    return;
+    document.getElementById('simMil').textContent = Math.round(totalMil / cnt).toLocaleString();
+    document.getElementById('simEr').textContent = Math.round(totalEr / cnt).toLocaleString();
   }
 
-  let totalMil = 0, totalEr = 0;
+  // 🎯 목표 도달 확률 계산
+  function testProb() {
+    const bm = parseInt(document.getElementById('testMil').value) || 0;
+    const be = parseInt(document.getElementById('testEr').value) || 0;
+    const tgt = parseInt(document.getElementById('testGoal').value) || 0;
+    const grade = document.getElementById('testGrade').value;
 
-  for (let i = 0; i < simCount; i++) {
-    let tmpLevel = 0, simMil = 0, simEr = 0;
-    while (tmpLevel < simLevel) {
-      const ch = upgradeChances[tmpLevel];
-      const success = Math.random() * 100 < ch.success;
-      simMil += costTable[grade].mil;
-      simEr += costTable[grade].er;
-      tmpLevel = success ? tmpLevel + 1 : ch.failStepDown ? Math.max(0, tmpLevel - 1) : tmpLevel;
+    let reachCount = 0;
+    const trials = 1000;
+    for (let i = 0; i < trials; i++) {
+      let lv = 0, m = 0, e = 0;
+      while (lv < tgt && m <= bm && e <= be) {
+        const ch = upgradeChances[lv];
+        const ok = Math.random() * 100 < ch.success;
+        m += costTable[grade].mil;
+        e += costTable[grade].er;
+        lv = ok ? lv + 1 : (ch.failStepDown ? Math.max(0, lv - 1) : lv);
+      }
+      if (lv >= tgt) reachCount++;
     }
-    totalMil += simMil;
-    totalEr += simEr;
+
+    document.getElementById('reachProb').textContent = ((reachCount / trials) * 100).toFixed(12) + '%';
   }
 
-  document.getElementById("simMil").textContent = Math.round(totalMil / simCount).toLocaleString();
-  document.getElementById("simEr").textContent = Math.round(totalEr / simCount).toLocaleString();
-}
+  // 🔁 초기화
+  function reset() {
+    level = tries = success = mil = er = 0;
+    history = [];
+    stageData = Array.from({ length: 10 }, () => ({ success:0, fail:0, keep:0 }));
+    document.getElementById('log').innerHTML = '';
+    document.getElementById('sequenceProb').textContent = '0%';
 
-function testProb() {
-  const budgetMil = parseInt(document.getElementById("testMil").value);
-  const budgetEr = parseInt(document.getElementById("testEr").value);
-  const goal = parseInt(document.getElementById("testGoal").value);
-  const grade = document.getElementById("testGrade").value;
+    chart.data.labels = [];
+    chart.data.datasets[0].data = [];
+    chart.update();
 
-  let reached = 0, trial = 1000;
+    histogram.data.datasets[0].data = Array(10).fill(0);
+    histogram.data.datasets[1].data = Array(10).fill(0);
+    histogram.data.datasets[2].data = Array(10).fill(0);
+    histogram.update();
 
-  for (let i = 0; i < trial; i++) {
-    let tmpLevel = 0, mil = 0, er = 0;
-    while (tmpLevel < goal && mil <= budgetMil && er <= budgetEr) {
-      const ch = upgradeChances[tmpLevel];
-      const s = Math.random() * 100 < ch.success;
-      mil += costTable[grade].mil;
-      er += costTable[grade].er;
-      tmpLevel = s ? tmpLevel + 1 : ch.failStepDown ? Math.max(0, tmpLevel - 1) : tmpLevel;
-    }
-    if (tmpLevel >= goal) reached++;
+    updateAll();
   }
 
-  const percent = (reached / trial * 100).toFixed(12);
-  document.getElementById("reachProb").textContent = `${percent}%`;
-}
+  // 🔧 테마 토글 + 초기 실행
+  document.getElementById('themeToggle').onclick = () => {
+    const isDark = document.body.classList.toggle('dark-mode');
+    document.getElementById('themeToggle').textContent = isDark ? '다크모드 끄기' : '다크모드 켜기';
+    applyDarkChartTheme(isDark);
+  };
 
-document.getElementById("themeToggle").onclick = () => {
-  document.body.classList.toggle("dark-mode");
-  document.getElementById("themeToggle").textContent =
-    document.body.classList.contains("dark-mode") ? "다크모드 끄기" : "다크모드 켜기";
-};
-
-window.onload = reset;
+  window.onload = () => {
+    reset();
+    applyDarkChartTheme(document.body.classList.contains('dark-mode'));
+  };
 </script>
-</body>
-</html>
