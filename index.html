@@ -108,11 +108,10 @@
          <span data-i18n="recentKeep">유지:</span> <span id="recentKeep">0</span></p>
     </div>
   </div>
-
   <!-- 오른쪽 자원 계산기 -->
   <div class="column">
     <h2 data-i18n="resourceCalc">💰 자원 계산</h2>
-    <p data-i18n="unitPrice">밀라 단가: 0.185원, ER 단가: 370원</p>
+    <p id="unitPriceDisplay" data-i18n="unitPrice">밀라 단가: 0.185원, ER 단가: 370원</p>
     <p data-i18n="package">패키지(특별강화3): ₩37,000</p>
     <p><span data-i18n="milToWon">밀라 환산:</span> <span id="totalMilWon">0</span></p>
     <p><span data-i18n="erToWon">ER 환산:</span> <span id="totalErWon">0</span></p>
@@ -219,6 +218,21 @@ const i18nData = {
 
 let currentLang = "ko";
 let currentCurrency = "KRW";
+let exchangeRateKRW = 1368.75;
+
+async function fetchExchangeRate() {
+  try {
+    const res = await fetch("https://api.exchangerate.host/latest?base=USD&symbols=KRW");
+    const data = await res.json();
+    if (data && data.rates && data.rates.KRW) {
+      exchangeRateKRW = data.rates.KRW;
+      console.log("✅ 실시간 환율 적용:", exchangeRateKRW);
+    }
+  } catch (e) {
+    console.warn("❌ 환율 API 실패. 기본값 사용:", exchangeRateKRW);
+  }
+}
+fetchExchangeRate();
 
 function switchLanguage() {
   currentLang = currentLang === "ko" ? "en" : "ko";
@@ -264,259 +278,268 @@ document.getElementById("langToggle").addEventListener("click", switchLanguage);
 document.getElementById("currencySelect").addEventListener("change", switchCurrency);
 </script>
 <script>
-  // ✅ 데이터 정의 (강화확률 및 비용)
-  const upgradeChances = [
-    {success:100, failStepDown:false}, {success:50, failStepDown:false},
-    {success:50, failStepDown:false}, {success:33, failStepDown:true},
-    {success:33, failStepDown:true}, {success:25, failStepDown:true},
-    {success:20, failStepDown:true}, {success:14, failStepDown:true},
-    {success:10, failStepDown:true}
-  ];
-  const costTable = { N:{mil:20000,er:10}, R:{mil:50000,er:20}, SR:{mil:100000,er:30}, SSR:{mil:250000,er:50} };
+function convertCurrency(amountKRW){
+  return currentCurrency === 'USD'
+    ? '$' + (amountKRW / exchangeRateKRW).toFixed(2)
+    : amountKRW.toLocaleString() + '₩';
+}
 
-  let level=0, tries=0, success=0, mil=0, er=0, auto=false, history=[],
-      stageData=Array.from({length:10},()=>({success:0,fail:0,keep:0}));
+function updateAll(){
+  document.getElementById('statTotal').textContent = tries;
+  document.getElementById('statSuccess').textContent = success;
+  document.getElementById('statFail').textContent = tries - success;
+  document.getElementById('chanceRate').textContent = `${upgradeChances[level].success}%`;
+  document.getElementById('level').textContent = `+${level}`;
+  document.getElementById('tries').textContent = tries;
+  document.getElementById('mil').textContent = mil.toLocaleString();
+  document.getElementById('er').textContent = er;
+  document.getElementById('toolCount').textContent = tries;
 
-  // ✅ 차트 초기화 (Chart.js)
-  const successCtx = document.getElementById('successChart').getContext('2d');
-  const chart = new Chart(successCtx, {
-    type: 'line',
-    data: {
-      labels: [], 
-      datasets: [{
-        label: i18nData[currentLang].successRateChart,
-        data: [],
-        borderColor: '#2196F3',
-        tension: 0.3
-      }]
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      scales: { x:{ticks:{color:'#333'}}, y:{ticks:{color:'#333'}, beginAtZero:true, max:100} },
-      plugins:{ legend:{labels:{color:'#333'}} }
-    }
+  const milWon = mil * 0.185;
+  const erWon = er * 370;
+  const totalKRW = milWon + erWon;
+
+  document.getElementById('totalMilWon').textContent = convertCurrency(milWon);
+  document.getElementById('totalErWon').textContent = convertCurrency(erWon);
+  document.getElementById('totalCash').textContent = convertCurrency(totalKRW);
+
+  const pkg = Math.ceil(totalKRW / 37000);
+  document.getElementById('packageCount').textContent = pkg;
+  document.getElementById('packagePrice').textContent = convertCurrency(pkg * 37000);
+
+  const unitPriceText = currentCurrency === 'USD'
+  ? `${i18nData[currentLang].unitPrice.split(',')[0].split(':')[0]}: $${(0.185 / exchangeRateKRW).toFixed(4)}, ${i18nData[currentLang].unitPrice.split(',')[1].split(':')[0]}: $${(370 / exchangeRateKRW).toFixed(4)}`
+  : i18nData[currentLang].unitPrice;
+  document.getElementById('unitPriceDisplay').textContent = unitPriceText;
+
+  const recent = history.slice(-10);
+  document.getElementById('recentSuccess').textContent = recent.filter(h=>h.result==='S').length;
+  document.getElementById('recentFail').textContent = recent.filter(h=>h.result==='F' && !h.keep).length;
+  document.getElementById('recentKeep').textContent = recent.filter(h=>h.keep).length;
+
+  chart.data.labels.push(tries);
+  chart.data.datasets[0].data.push(tries ? +(success/tries*100).toFixed(2) : 0);
+  chart.update();
+
+  histogram.data.datasets[0].data = stageData.map(d=>d.success);
+  histogram.data.datasets[1].data = stageData.map(d=>d.fail);
+  histogram.data.datasets[2].data = stageData.map(d=>d.keep);
+  histogram.update();
+}
+
+function tryUpgrade(){
+  if(level >= 9) return;
+  const prev = level;
+  const grade = document.getElementById('grade').value;
+  const chance = upgradeChances[level];
+  const ok = Math.random() * 100 < chance.success;
+
+  tries++;
+  mil += costTable[grade].mil;
+  er += costTable[grade].er;
+
+  let resultType, logMsg;
+  if(ok){
+    level++;
+    success++;
+    stageData[prev].success++;
+    resultType = 'logSuccess';
+    logMsg = `✨ +${prev} → +${level} `;
+  } else if(chance.failStepDown){
+    level = Math.max(0, level - 1);
+    stageData[prev].fail++;
+    resultType = 'logFailDown';
+    logMsg = `💀 +${prev} → +${level} `;
+  } else {
+    stageData[prev].keep++;
+    resultType = 'logFailKeep';
+    logMsg = `💥 +${prev} → +${level} `;
+  }
+
+  const cssClass = resultType === 'logSuccess'
+    ? 'success'
+    : resultType === 'logFailDown' ? 'fail-down' : 'fail-keep';
+
+  document.getElementById('log').innerHTML =
+    `<div class="log-entry ${cssClass}">${logMsg}(${i18nData[currentLang][resultType]})</div>` +
+    document.getElementById('log').innerHTML;
+
+  history.push({
+    rate: chance.success,
+    result: ok ? 'S' : 'F',
+    keep: resultType === 'logFailKeep'
   });
 
-  const histoCtx = document.getElementById('stageHistogram').getContext('2d');
-  const histogram = new Chart(histoCtx, {
-    type:'bar',
-    data:{
-      labels: Array.from({length:10},(_,i)=>`+${i}`),
-      datasets:[
-        { label: i18nData[currentLang].successLabel, data:[], backgroundColor:'rgba(76,175,80,0.6)' },
-        { label: i18nData[currentLang].failLabelBar, data:[], backgroundColor:'rgba(255,193,7,0.6)' },
-        { label: i18nData[currentLang].keepLabel, data:[], backgroundColor:'rgba(244,67,54,0.6)' }
-      ]
-    },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      scales:{ x:{ stacked:true, ticks:{color:'#333'}}, y:{ stacked:true, ticks:{color:'#333'}} },
-      plugins:{ legend:{labels:{color:'#333'}} }
+  document.getElementById('sequenceProb').textContent = (calculateSequenceProbability()*100).toFixed(8) + '%';
+  updateAll();
+}
+
+function startAuto(){
+  const tgt = parseInt(document.getElementById('targetLevel').value) || 0;
+  auto = true;
+  const iv = setInterval(() => {
+    if(!auto || level >= tgt) clearInterval(iv);
+    else tryUpgrade();
+  }, 250);
+}
+
+function stopAuto(){ auto = false; }
+
+function runSim(){
+  const tgt = parseInt(document.getElementById('simTarget').value) || 1;
+  const cnt = parseInt(document.getElementById('simCount').value) || 0;
+  if(cnt < 100 || cnt > 10000) return alert(i18nData[currentLang].calcAvg + ' between 100 and 10000');
+
+  const grade = document.getElementById('simGrade').value;
+  let totalMil = 0, totalEr = 0;
+
+  for(let i=0; i<cnt; i++){
+    let lv=0, m=0, e=0;
+    while(lv < tgt){
+      const ch = upgradeChances[lv];
+      const ok = Math.random() * 100 < ch.success;
+      m += costTable[grade].mil;
+      e += costTable[grade].er;
+      lv = ok ? lv + 1 : (ch.failStepDown ? Math.max(0, lv - 1) : lv);
     }
+    totalMil += m;
+    totalEr += e;
+  }
+
+  document.getElementById('simMil').textContent = Math.round(totalMil / cnt).toLocaleString();
+  document.getElementById('simEr').textContent = Math.round(totalEr / cnt).toLocaleString();
+}
+
+function testProb(){
+  const bm = parseInt(document.getElementById('testMil').value) || 0;
+  const be = parseInt(document.getElementById('testEr').value) || 0;
+  const tgt = parseInt(document.getElementById('testGoal').value) || 0;
+  const grade = document.getElementById('testGrade').value;
+
+  let reachCount = 0;
+  const trials = 1000;
+
+  for(let i=0; i<trials; i++){
+    let lv=0, m=0, e=0;
+    while(lv < tgt && m <= bm && e <= be){
+      const ch = upgradeChances[lv];
+      const ok = Math.random() * 100 < ch.success;
+      m += costTable[grade].mil;
+      e += costTable[grade].er;
+      lv = ok ? lv + 1 : (ch.failStepDown ? Math.max(0, lv - 1) : lv);
+    }
+    if(lv >= tgt) reachCount++;
+  }
+
+  document.getElementById('reachProb').textContent = ((reachCount / trials) * 100).toFixed(12) + '%';
+}
+
+function calculateSequenceProbability(){
+  return history.reduce((acc, cur) => {
+    const p = cur.result === 'S'
+      ? cur.rate / 100
+      : 1 - cur.rate / 100;
+    return acc * p;
+  }, 1);
+}
+
+function reset(){
+  level = tries = success = mil = er = 0;
+  history = [];
+  stageData = Array.from({length:10},()=>({success:0,fail:0,keep:0}));
+
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('sequenceProb').textContent = '0%';
+
+  chart.data.labels = [];
+  chart.data.datasets[0].data = [];
+  chart.update();
+
+  histogram.data.datasets[0].data = [];
+  histogram.data.datasets[1].data = [];
+  histogram.data.datasets[2].data = [];
+  histogram.update();
+
+  updateAll();
+}
+
+document.getElementById('themeToggle').onclick = () => {
+  const isDark = document.body.classList.toggle('dark-mode');
+  document.getElementById('themeToggle').textContent = isDark
+    ? i18nData[currentLang].darkModeOff
+    : i18nData[currentLang].darkModeOn;
+  applyDarkChartTheme(isDark);
+};
+
+window.addEventListener('DOMContentLoaded', () => {
+  reset();
+  applyDarkChartTheme(document.body.classList.contains('dark-mode'));
+});
+
+const upgradeChances = [
+  {success:100, failStepDown:false}, {success:50, failStepDown:false},
+  {success:50, failStepDown:false}, {success:33, failStepDown:true},
+  {success:33, failStepDown:true}, {success:25, failStepDown:true},
+  {success:20, failStepDown:true}, {success:14, failStepDown:true},
+  {success:10, failStepDown:true}
+];
+
+const costTable = {
+  N:{mil:20000,er:10},
+  R:{mil:50000,er:20},
+  SR:{mil:100000,er:30},
+  SSR:{mil:250000,er:50}
+};
+
+let level=0, tries=0, success=0, mil=0, er=0, auto=false, history=[],
+    stageData=Array.from({length:10},()=>({success:0,fail:0,keep:0}));
+
+const successCtx = document.getElementById('successChart').getContext('2d');
+const chart = new Chart(successCtx, {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [{
+      label: i18nData[currentLang].successRateChart,
+      data: [],
+      borderColor: '#2196F3',
+      tension: 0.3
+    }]
+  },
+  options: {
+    responsive:true, maintainAspectRatio:false,
+    scales: { x:{ticks:{color:'#333'}}, y:{ticks:{color:'#333'}, beginAtZero:true, max:100} },
+    plugins:{ legend:{labels:{color:'#333'}} }
+  }
+});
+
+const histoCtx = document.getElementById('stageHistogram').getContext('2d');
+const histogram = new Chart(histoCtx, {
+  type:'bar',
+  data:{
+    labels: Array.from({length:10},(_,i)=>`+${i}`),
+    datasets:[
+      { label: i18nData[currentLang].successLabel, data:[], backgroundColor:'rgba(76,175,80,0.6)' },
+      { label: i18nData[currentLang].failLabelBar, data:[], backgroundColor:'rgba(255,193,7,0.6)' },
+      { label: i18nData[currentLang].keepLabel, data:[], backgroundColor:'rgba(244,67,54,0.6)' }
+    ]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    scales:{ x:{ stacked:true, ticks:{color:'#333'}}, y:{ stacked:true, ticks:{color:'#333'}} },
+    plugins:{ legend:{labels:{color:'#333'}} }
+  }
+});
+
+function applyDarkChartTheme(isDark) {
+  const col = isDark ? '#ddd' : '#333';
+  [chart, histogram].forEach(c => {
+    c.options.scales.x.ticks.color = col;
+    c.options.scales.y.ticks.color = col;
+    c.options.plugins.legend.labels.color = col;
+    c.update();
   });
-
-  function applyDarkChartTheme(isDark) {
-    const col = isDark ? '#ddd' : '#333';
-    [chart, histogram].forEach(c => {
-      c.options.scales.x.ticks.color = col;
-      c.options.scales.y.ticks.color = col;
-      c.options.plugins.legend.labels.color = col;
-      c.update();
-    });
-  }
-
-  function calculateSequenceProbability(){
-    return history.reduce((acc, cur) => {
-      const p = cur.result === 'S'
-        ? cur.rate / 100
-        : 1 - cur.rate / 100;
-      return acc * p;
-    }, 1);
-  }
-
-  function convertCurrency(amountKRW){
-    return currentCurrency === 'USD'
-      ? '$' + (amountKRW / 1368).toFixed(2)
-      : amountKRW.toLocaleString() + '₩';
-  }
-
-  function updateAll(){
-    document.getElementById('statTotal').textContent = tries;
-    document.getElementById('statSuccess').textContent = success;
-    document.getElementById('statFail').textContent = tries - success;
-    document.getElementById('chanceRate').textContent = `${upgradeChances[level].success}%`;
-    document.getElementById('level').textContent = `+${level}`;
-    document.getElementById('tries').textContent = tries;
-    document.getElementById('mil').textContent = mil.toLocaleString();
-    document.getElementById('er').textContent = er;
-    document.getElementById('toolCount').textContent = tries;
-
-    const milWon = mil * 0.185;
-    const erWon = er * 370;
-    const totalKRW = milWon + erWon;
-
-    document.getElementById('totalMilWon').textContent = convertCurrency(milWon);
-    document.getElementById('totalErWon').textContent = convertCurrency(erWon);
-    document.getElementById('totalCash').textContent = convertCurrency(totalKRW);
-
-    const pkg = Math.ceil(totalKRW / 37000);
-    document.getElementById('packageCount').textContent = pkg;
-    document.getElementById('packagePrice').textContent = convertCurrency(pkg * 37000);
-
-    const recent = history.slice(-10);
-    document.getElementById('recentSuccess').textContent = recent.filter(h=>h.result==='S').length;
-    document.getElementById('recentFail').textContent = recent.filter(h=>h.result==='F' && !h.keep).length;
-    document.getElementById('recentKeep').textContent = recent.filter(h=>h.keep).length;
-
-    chart.data.labels.push(tries);
-    chart.data.datasets[0].data.push(tries ? +(success/tries*100).toFixed(2) : 0);
-    chart.update();
-
-    histogram.data.datasets[0].data = stageData.map(d=>d.success);
-    histogram.data.datasets[1].data = stageData.map(d=>d.fail);
-    histogram.data.datasets[2].data = stageData.map(d=>d.keep);
-    histogram.update();
-  }
-
-  function tryUpgrade(){
-    if(level >= 9) return;
-    const prev = level;
-    const grade = document.getElementById('grade').value;
-    const chance = upgradeChances[level];
-    const ok = Math.random() * 100 < chance.success;
-
-    tries++;
-    mil += costTable[grade].mil;
-    er += costTable[grade].er;
-
-    let resultType, logMsg;
-    if(ok){
-      level++;
-      success++;
-      stageData[prev].success++;
-      resultType = 'logSuccess';
-      logMsg = `✨ +${prev} → +${level} `;
-    } else if(chance.failStepDown){
-      level = Math.max(0, level - 1);
-      stageData[prev].fail++;
-      resultType = 'logFailDown';
-      logMsg = `💀 +${prev} → +${level} `;
-    } else {
-      stageData[prev].keep++;
-      resultType = 'logFailKeep';
-      logMsg = `💥 +${prev} → +${level} `;
-    }
-
-    const cssClass = resultType === 'logSuccess'
-      ? 'success'
-      : resultType === 'logFailDown' ? 'fail-down' : 'fail-keep';
-
-    document.getElementById('log').innerHTML =
-      `<div class="log-entry ${cssClass}">${logMsg}(${i18nData[currentLang][resultType]})</div>` +
-      document.getElementById('log').innerHTML;
-
-    history.push({
-      rate: chance.success,
-      result: ok ? 'S' : 'F',
-      keep: resultType === 'logFailKeep'
-    });
-
-    document.getElementById('sequenceProb').textContent = (calculateSequenceProbability()*100).toFixed(8) + '%';
-    updateAll();
-  }
-
-  function startAuto(){
-    const tgt = parseInt(document.getElementById('targetLevel').value) || 0;
-    auto = true;
-    const iv = setInterval(() => {
-      if(!auto || level >= tgt) clearInterval(iv);
-      else tryUpgrade();
-    }, 250);
-  }
-
-  function stopAuto(){ auto = false; }
-
-  function runSim(){
-    const tgt = parseInt(document.getElementById('simTarget').value) || 1;
-    const cnt = parseInt(document.getElementById('simCount').value) || 0;
-    if(cnt < 100 || cnt > 10000) return alert(i18nData[currentLang].calcAvg + ' between 100 and 10000');
-
-    const grade = document.getElementById('simGrade').value;
-    let totalMil = 0, totalEr = 0;
-
-    for(let i=0; i<cnt; i++){
-      let lv=0, m=0, e=0;
-      while(lv < tgt){
-        const ch = upgradeChances[lv];
-        const ok = Math.random() * 100 < ch.success;
-        m += costTable[grade].mil;
-        e += costTable[grade].er;
-        lv = ok ? lv + 1 : (ch.failStepDown ? Math.max(0, lv - 1) : lv);
-      }
-      totalMil += m;
-      totalEr += e;
-    }
-
-    document.getElementById('simMil').textContent = Math.round(totalMil / cnt).toLocaleString();
-    document.getElementById('simEr').textContent = Math.round(totalEr / cnt).toLocaleString();
-  }
-
-  function testProb(){
-    const bm = parseInt(document.getElementById('testMil').value) || 0;
-    const be = parseInt(document.getElementById('testEr').value) || 0;
-    const tgt = parseInt(document.getElementById('testGoal').value) || 0;
-    const grade = document.getElementById('testGrade').value;
-
-    let reachCount = 0;
-    const trials = 1000;
-
-    for(let i=0; i<trials; i++){
-      let lv=0, m=0, e=0;
-      while(lv < tgt && m <= bm && e <= be){
-        const ch = upgradeChances[lv];
-        const ok = Math.random() * 100 < ch.success;
-        m += costTable[grade].mil;
-        e += costTable[grade].er;
-        lv = ok ? lv + 1 : (ch.failStepDown ? Math.max(0, lv - 1) : lv);
-      }
-      if(lv >= tgt) reachCount++;
-    }
-
-    document.getElementById('reachProb').textContent = ((reachCount / trials) * 100).toFixed(12) + '%';
-  }
-
-  function reset(){
-    level = tries = success = mil = er = 0;
-    history = [];
-    stageData = Array.from({length:10},()=>({success:0,fail:0,keep:0}));
-
-    document.getElementById('log').innerHTML = '';
-    document.getElementById('sequenceProb').textContent = '0%';
-
-    chart.data.labels = [];
-    chart.data.datasets[0].data = [];
-    chart.update();
-
-    histogram.data.datasets[0].data = [];
-    histogram.data.datasets[1].data = [];
-    histogram.data.datasets[2].data = [];
-    histogram.update();
-
-    updateAll();
-  }
-
-  document.getElementById('themeToggle').onclick = () => {
-    const isDark = document.body.classList.toggle('dark-mode');
-    document.getElementById('themeToggle').textContent = isDark
-      ? i18nData[currentLang].darkModeOff
-      : i18nData[currentLang].darkModeOn;
-    applyDarkChartTheme(isDark);
-  };
-
-  window.addEventListener('DOMContentLoaded', () => {
-    reset();
-    applyDarkChartTheme(document.body.classList.contains('dark-mode'));
-  });
+}
 </script>
 </body>
 </html>
